@@ -84,6 +84,11 @@
         .dark #artist-preview-tooltip .preview-label { color: #e2e8f0; }
         #artist-preview-tooltip .preview-pct { font-size: 10px; color: #94a3b8; font-weight: 600; margin-left: 4px; }
         .pie-canvas-wrap { position: relative; }
+        .ghost-artist { opacity: 0.6; border: 1px dashed #94a3b8 !important; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(148,163,175,0.06) 4px, rgba(148,163,175,0.06) 8px) !important; }
+        .dark .ghost-artist { border-color: #475569 !important; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(71,85,105,0.15) 4px, rgba(71,85,105,0.15) 8px) !important; }
+        .ghost-artist .ghost-badge { display: inline-flex; align-items: center; gap: 2px; font-size: 9px; font-weight: 700; color: #f59e0b; background: rgba(245,158,11,0.12); padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+        .import-prompt-btn { transition: all 0.2s ease; }
+        .import-prompt-btn:hover { transform: scale(1.02); }
     </style>
 </head>
 <body>
@@ -584,6 +589,161 @@
             }
         };
 
+        // =========================================
+        // 画师串解析 (Parse Prompt Input)
+        // =========================================
+
+        // Strip "artist:" prefix that NAI allows as a tag qualifier
+        // e.g. "artist:pikazo_mika" → "pikazo_mika"
+        const stripArtistPrefix = (raw) => raw.trim().replace(/^artist:\s*/i, '').trim();
+
+        const parsePromptInput = (text) => {
+            text = text.trim();
+            if (!text) return [];
+            const results = []; // { tag, weight }
+
+            // NAI format uses '::' as delimiter.
+            // Valid forms per spec:
+            //   weight::artist1, artist2::   - weighted group
+            //   artist1, artist2             - bare comma-separated (weight = 1.0)
+            //   Mixed: 0.8::artistA::, artistB, 1.2::artistD, artistE::
+            // Weight MUST be a proper decimal number (≥1 digit before or after dot).
+            // This prevents artist names containing digits from being mis-parsed as weights.
+
+            const hasNaiSyntax = text.includes('::');
+
+            if (hasNaiSyntax) {
+                // Strict weight pattern: requires at least one digit group.
+                // Matches:  0.8::content::   1::content::   1.0::content::
+                // Does NOT match: ::content:: (no leading digits → treated as bare text)
+                // Does NOT match: 1girl::content:: (1girl has letters, regex can't consume past digit)
+                const naiGroupRegex = /(\d+(?:\.\d+)?)\s*::\s*((?:[^:]|:(?!:))+?)\s*::/g;
+                const groupMatches = [];
+                let match;
+
+                while ((match = naiGroupRegex.exec(text)) !== null) {
+                    groupMatches.push({
+                        weight: parseFloat(match[1]),
+                        content: match[2],
+                        start: match.index,
+                        end: match.index + match[0].length
+                    });
+                }
+
+                // Walk through text, collecting bare segments between weighted groups
+                let cursor = 0;
+                for (const gm of groupMatches) {
+                    if (gm.start > cursor) {
+                        // Bare text before this weighted group
+                        const bareText = text.slice(cursor, gm.start).trim().replace(/^[,\s]+|[,\s]+$/g, '');
+                        if (bareText) {
+                            bareText.split(',').forEach(t => {
+                                const tag = stripArtistPrefix(t);
+                                if (tag) results.push({ tag, weight: 1.0 });
+                            });
+                        }
+                    }
+                    // Weighted group
+                    const weight = (isNaN(gm.weight) || gm.weight <= 0) ? 1.0 : Math.round(gm.weight * 10) / 10;
+                    gm.content.split(',').forEach(t => {
+                        const tag = stripArtistPrefix(t);
+                        if (tag) results.push({ tag, weight });
+                    });
+                    cursor = gm.end;
+                }
+                // Trailing bare text after last weighted group
+                if (cursor < text.length) {
+                    const bareText = text.slice(cursor).trim().replace(/^[,\s]+|[,\s]+$/g, '');
+                    if (bareText) {
+                        bareText.split(',').forEach(t => {
+                            const tag = stripArtistPrefix(t);
+                            if (tag) results.push({ tag, weight: 1.0 });
+                        });
+                    }
+                }
+            } else {
+                // No '::' → try WebUI format or plain comma list
+                text.split(',').forEach(token => {
+                    token = token.trim();
+                    if (!token) return;
+                    // WebUI weighted: (tag:1.1)
+                    const webuiMatch = token.match(/^\(\s*(.+?)\s*:\s*([\d.]+)\s*\)$/);
+                    if (webuiMatch) {
+                        const tag = stripArtistPrefix(webuiMatch[1]);
+                        let w = parseFloat(webuiMatch[2]);
+                        if (isNaN(w) || w <= 0) w = 1.0;
+                        if (tag) results.push({ tag, weight: Math.round(w * 10) / 10 });
+                    } else {
+                        const tag = stripArtistPrefix(token.replace(/^\(+|\)+$/g, ''));
+                        if (tag) results.push({ tag, weight: 1.0 });
+                    }
+                });
+            }
+
+            return results;
+        };
+
+        const importFromPromptText = (text) => {
+            const parsed = parsePromptInput(text);
+            if (parsed.length === 0) return showToast('未检测到有效的画师标签');
+
+            // Clear current selection and ghost entries
+            state.selected = {};
+            state.selectedOrder = [];
+            state.artists = state.artists.filter(a => !a._ghost);
+
+            let foundCount = 0;
+            let ghostCount = 0;
+
+            for (const item of parsed) {
+                const needle = item.tag.toLowerCase().trim();
+
+                // Multi-strategy lookup (case-insensitive):
+                // 1. Exact match on tag or name
+                // 2. DB tag has 'artist:' prefix but input doesn't (or vice versa)
+                const findArtist = (q) => state.artists.find(a => {
+                    const dbTag  = (a.tag  || '').toLowerCase().trim();
+                    const dbName = (a.name || '').toLowerCase().trim();
+                    // Strip 'artist:' from DB tag for comparison
+                    const dbTagStripped = dbTag.replace(/^artist:\s*/, '');
+                    return dbTag === q || dbName === q || dbTagStripped === q;
+                });
+
+                let artist = findArtist(needle);
+                // Also try with 'artist:' prefix prepended (in case DB stores "artist:xxx")
+                if (!artist) artist = findArtist('artist:' + needle);
+
+                if (artist) {
+                    const id = String(artist.id);
+                    if (!(id in state.selected)) {
+                        state.selected[id] = item.weight;
+                        state.selectedOrder.push(id);
+                        foundCount++;
+                    }
+                } else {
+                    // Not found → ghost placeholder
+                    const ghostId = '_ghost_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                    state.artists.push({
+                        id: ghostId,
+                        name: item.tag,
+                        tag: item.tag,
+                        categories: ['未分类'],
+                        danbooruCount: 0,
+                        createdAt: Date.now(),
+                        _ghost: true
+                    });
+                    state.selected[ghostId] = item.weight;
+                    state.selectedOrder.push(ghostId);
+                    ghostCount++;
+                }
+            }
+
+            renderGrid();
+            renderSidebarRight();
+            const msg = `导入完成: ${foundCount} 位已匹配` + (ghostCount > 0 ? `，${ghostCount} 位未找到(占位)` : '');
+            showToast(msg);
+        };
+
         const getFilteredList = () => {
             if (state.viewMode === 'presets') return state.presets;
             const search = state.searchQuery.toLowerCase();
@@ -1077,7 +1237,7 @@
             const items = orderedIds.map(id => state.artists.find(a => String(a.id) === id)).filter(Boolean);
             const prompt = items.map(a => {
                 const w = state.selected[String(a.id)];
-                return state.promptFormat === 'webui' ? (w===1 ? a.tag : `(${a.tag}:${w.toFixed(1)})`) : (w===1 ? a.tag : `${w.toFixed(1)}:: ${a.tag} ::`);
+                return state.promptFormat === 'webui' ? (w===1 ? a.tag : `(${a.tag}:${w.toFixed(1)})`) : (w===1 ? a.tag : `${w.toFixed(1)}::${a.tag}::`);
             }).join(', ');
             const isWebui = state.promptFormat === 'webui';
             const totalWeight = items.reduce((s, a) => s + (state.selected[String(a.id)] || 1), 0);
@@ -1086,8 +1246,8 @@
                 <div class="p-5 border-b border-slate-200/50 dark:border-slate-700/50 flex justify-between items-center"><h2 class="font-bold text-lg dark:text-white flex items-center gap-2"><i data-lucide="wand-2" class="w-5 h-5 text-indigo-500"></i> 咒语生成</h2><span class="bg-indigo-100 text-indigo-600 text-sm font-bold px-3 py-1 rounded-full">${items.length}</span></div>
                 ${items.length > 0 ? `<div class="px-4 py-3 border-b border-slate-200/50 dark:border-slate-700/50 pie-canvas-wrap"><canvas id="pie-chart-cv" style="width:100%;height:180px;display:block;cursor:pointer"></canvas></div>` : ''}
                 <div class="px-5 py-3 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between"><span class="text-xs font-bold text-slate-500">输出格式</span><div class="flex bg-slate-200 dark:bg-slate-700 rounded-full p-1 w-32 relative cursor-pointer" onclick="state.promptFormat=state.promptFormat==='webui'?'novelai':'webui';renderSidebarRight()"><div class="absolute inset-y-1 w-[calc(50%-4px)] bg-white dark:bg-indigo-500 rounded-full shadow-sm capsule-bg" style="left: ${isWebui?'4px':'calc(50%)'}"></div><div class="flex-1 text-[10px] font-bold text-center z-10 py-1 ${isWebui?'text-indigo-600':'text-slate-500 dark:text-slate-400'}">(SDXL)</div><div class="flex-1 text-[10px] font-bold text-center z-10 py-1 ${!isWebui?'text-white':'text-slate-500 dark:text-slate-400'}">(NAI)</div></div></div>
-                <div class="flex-1 overflow-y-auto p-5 space-y-2 custom-scrollbar" id="right-artist-list-scroll">${items.length === 0 ? `<div class="text-center text-slate-400 py-10">点击左侧卡片选择画师</div>` : items.map((a, idx) => { const id = String(a.id); const w = state.selected[id]; const pct = totalWeight > 0 ? ((w/totalWeight)*100).toFixed(1) : '0'; const color = PIE_COLORS[idx % PIE_COLORS.length]; const isFirst = idx === 0; const isLast = idx === items.length - 1; return `<div class="flex items-center gap-1 group bg-white/50 dark:bg-slate-800/50 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all artist-hover-row artist-drag-item" data-artist-id="${id}" data-artist-idx="${idx}" draggable="true"><div class="flex flex-col gap-0.5 flex-shrink-0 mr-1"><button onclick="event.stopPropagation();moveSelectedArtist(${idx},${idx-1})" class="artist-move-btn" ${isFirst?'disabled':''}><i data-lucide="chevron-up" class="w-3 h-3"></i></button><button onclick="event.stopPropagation();moveSelectedArtist(${idx},${idx+1})" class="artist-move-btn" ${isLast?'disabled':''}><i data-lucide="chevron-down" class="w-3 h-3"></i></button></div><div class="flex items-center flex-1 min-w-0 cursor-default" onmouseenter="showArtistPreview('${id}',event)" onmousemove="movePreviewTooltip(event)" onmouseleave="hideArtistPreview()"><div class="w-3 h-3 rounded-full flex-shrink-0 mr-2" style="background:${color};box-shadow:0 0 6px ${color}60"></div><div class="flex-1 min-w-0 pr-2"><div class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">${a.name}</div><div class="text-xs text-slate-400 truncate font-mono mt-0.5">${a.tag} <span style="color:${color};font-weight:700">${pct}%</span></div></div></div><div class="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 shadow-sm"><button onclick="state.selected['${id}']=(state.selected['${id}']-0.1)||0.1;renderSidebarRight()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-indigo-600"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button><span class="text-xs font-mono w-8 text-center font-bold dark:text-white">${w.toFixed(1)}</span><button onclick="state.selected['${id}']=(state.selected['${id}']+0.1)||0.1;renderSidebarRight()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-indigo-600"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button></div><button onclick="delete state.selected['${id}'];state.selectedOrder=state.selectedOrder.filter(x=>x!=='${id}');hideArtistPreview();updateCardVisual('${id}');renderSidebarRight()" class="ml-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg p-1 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button></div>`}).join('')}</div>
-                <div class="p-5 border-t border-slate-200/50 dark:border-slate-700/50 space-y-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md"><textarea id="res-box" readonly class="w-full h-24 text-sm p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none dark:text-slate-300 shadow-inner" onclick="this.select()">${prompt}</textarea><div class="flex gap-2"><button onclick="actions.openAddPresetModal()" class="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-green-500/30 flex items-center justify-center gap-1"><i data-lucide="save" class="w-4 h-4"></i> 存为预设</button><button onclick="document.getElementById('res-box').select();document.execCommand('copy');showToast('咒语已复制')" class="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"><i data-lucide="copy" class="w-4 h-4"></i> 复制</button><button onclick="state.selected={};state.selectedOrder=[];renderGrid();renderSidebarRight()" class="p-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div></div>`;
+                <div class="flex-1 overflow-y-auto p-5 space-y-2 custom-scrollbar" id="right-artist-list-scroll">${items.length === 0 ? `<div class="text-center text-slate-400 py-10"><i data-lucide="clipboard-paste" class="w-10 h-10 mx-auto mb-3 opacity-30"></i><p>点击左侧卡片选择画师</p><p class="text-xs mt-1 opacity-60">或在下方文本框粘贴画师串导入</p></div>` : items.map((a, idx) => { const id = String(a.id); const w = state.selected[id]; const pct = totalWeight > 0 ? ((w/totalWeight)*100).toFixed(1) : '0'; const color = PIE_COLORS[idx % PIE_COLORS.length]; const isFirst = idx === 0; const isLast = idx === items.length - 1; const isGhost = !!a._ghost; return `<div class="flex items-center gap-1 group bg-white/50 dark:bg-slate-800/50 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all artist-hover-row artist-drag-item ${isGhost ? 'ghost-artist' : ''}" data-artist-id="${id}" data-artist-idx="${idx}" draggable="true"><div class="flex flex-col gap-0.5 flex-shrink-0 mr-1"><button onclick="event.stopPropagation();moveSelectedArtist(${idx},${idx-1})" class="artist-move-btn" ${isFirst?'disabled':''}><i data-lucide="chevron-up" class="w-3 h-3"></i></button><button onclick="event.stopPropagation();moveSelectedArtist(${idx},${idx+1})" class="artist-move-btn" ${isLast?'disabled':''}><i data-lucide="chevron-down" class="w-3 h-3"></i></button></div><div class="flex items-center flex-1 min-w-0 cursor-default" ${!isGhost ? `onmouseenter="showArtistPreview('${id}',event)" onmousemove="movePreviewTooltip(event)" onmouseleave="hideArtistPreview()"` : ''}><div class="w-3 h-3 rounded-full flex-shrink-0 mr-2" style="background:${isGhost ? '#94a3b8' : color};box-shadow:0 0 6px ${isGhost ? '#94a3b860' : color+'60'}"></div><div class="flex-1 min-w-0 pr-2"><div class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">${a.name}${isGhost ? '<span class="ghost-badge"><i data-lucide="help-circle" class="w-3 h-3"></i>未匹配</span>' : ''}</div><div class="text-xs text-slate-400 truncate font-mono mt-0.5">${a.tag} <span style="color:${isGhost ? '#94a3b8' : color};font-weight:700">${pct}%</span></div></div></div><div class="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 shadow-sm"><button onclick="state.selected['${id}']=(state.selected['${id}']-0.1)||0.1;renderSidebarRight()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-indigo-600"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button><span class="text-xs font-mono w-8 text-center font-bold dark:text-white">${w.toFixed(1)}</span><button onclick="state.selected['${id}']=(state.selected['${id}']+0.1)||0.1;renderSidebarRight()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-indigo-600"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button></div><button onclick="delete state.selected['${id}'];state.selectedOrder=state.selectedOrder.filter(x=>x!=='${id}');if('${id}'.startsWith('_ghost_')){state.artists=state.artists.filter(a=>String(a.id)!=='${id}');}hideArtistPreview();updateCardVisual('${id}');renderSidebarRight()" class="ml-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg p-1 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button></div>`}).join('')}</div>
+                <div class="p-5 border-t border-slate-200/50 dark:border-slate-700/50 space-y-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md"><textarea id="res-box" class="w-full h-24 text-sm p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none dark:text-slate-300 shadow-inner" placeholder="粘贴画师串到此处导入，或由选择自动生成...">${prompt}</textarea><div class="flex gap-2"><button onclick="const box=document.getElementById('res-box');importFromPromptText(box.value)" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/30 flex items-center justify-center gap-1 import-prompt-btn"><i data-lucide="clipboard-paste" class="w-4 h-4"></i> 导入串</button><button onclick="actions.openAddPresetModal()" class="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-green-500/30 flex items-center justify-center gap-1"><i data-lucide="save" class="w-4 h-4"></i> 存预设</button><button onclick="document.getElementById('res-box').select();document.execCommand('copy');showToast('咒语已复制')" class="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"><i data-lucide="copy" class="w-4 h-4"></i> 复制</button><button onclick="state.selected={};state.selectedOrder=[];state.artists=state.artists.filter(a=>!a._ghost);renderGrid();renderSidebarRight()" class="p-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div></div>`;
             // Restore scroll position of the artist list after re-render
             const newArtistListEl = document.getElementById('right-artist-list-scroll');
             if (newArtistListEl) {
