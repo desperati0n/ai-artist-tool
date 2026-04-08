@@ -1237,7 +1237,7 @@
             const items = orderedIds.map(id => state.artists.find(a => String(a.id) === id)).filter(Boolean);
             const prompt = items.map(a => {
                 const w = state.selected[String(a.id)];
-                return state.promptFormat === 'webui' ? (w===1 ? a.tag : `(${a.tag}:${w.toFixed(1)})`) : (w===1 ? a.tag : `${w.toFixed(1)}::${a.tag}::`);
+                return state.promptFormat === 'webui' ? (w===1 ? a.tag : `(${a.tag}:${w.toFixed(1)})`) : (w===1 ? a.tag : `${w.toFixed(1)}:: ${a.tag} ::`);
             }).join(', ');
             const isWebui = state.promptFormat === 'webui';
             const totalWeight = items.reduce((s, a) => s + (state.selected[String(a.id)] || 1), 0);
