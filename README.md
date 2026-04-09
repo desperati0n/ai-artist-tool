@@ -73,12 +73,10 @@
 4. **🧠 进阶功能：全自动画师信息抓取脚本 `fetch_danbooru_counts.py`**
    - 从仓库中执行附带的 Python 脚本，它可以全自动读取你在上一步导出的本地 JSON 存档。
    - **自动化获取热度与链接**：通过 Danbooru V2 官方最新架构，多线程地全自动探查每个画师的当前全网热度 (`danbooruCount`)，同时追踪收录画师名下的海量各流派官方主页链接进行排重合并（如 X.com, Pixiv, Xiaohongshu）。
-   - **用法指令**：
-     请确保您的网络能直连 Danbooru (需开梯子或使用 `--proxy`)：
-     ```powershell
-     python fetch_danbooru_counts.py "你的已导出存档.json" --proxy http://127.0.0.1:7890
-     ```
-     执行完毕后会吐出一个后缀名为 `_updated.json` 的全新存档。配合本工具主页刚引入的**无损导入倒灌功能(Smart Upsert)**直接吃回本地，你所有的画师墙瞬间就实现了完美的时效性信息焕新！
+   - **快速使用**：
+     请确保您的网络环境（梯子）可以正常访问 Danbooru。
+     直接将你从网页导出的 `.json` 存档与 `fetch_danbooru_counts.py` 放在统一个目录下，然后双击运行脚本（或在终端执行 `python fetch_danbooru_counts.py`）即可。
+     执行完毕后会自动在您的目录下生成一个后缀名为 `_updated.json` 的全新更新存档。配合本工具主页刚引入的**无损导入倒灌功能(Smart Upsert)**直接重新 `导入` 导入这个新档，你所有的画师墙瞬间就实现了完美的时效性热重载！
      
 ## 🤝 贡献 (Contributing)
 
