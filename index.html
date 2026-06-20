@@ -215,35 +215,95 @@
             modal: null, 
             editingId: null,
             formData: {},
-            theme: 'light'
+            theme: 'light',
+            isServer: false // 是否为本地 Python 服务模式
         };
 
         const actions = {
             init: async () => {
                 state.theme = localStorage.getItem(THEME_KEY) || 'light';
-                const savedCats = localStorage.getItem(CATEGORY_KEY);
-                state.categories = savedCats ? JSON.parse(savedCats) : ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
-                const savedPresets = localStorage.getItem(PRESET_KEY);
-                state.presets = savedPresets ? JSON.parse(savedPresets) : [];
-                const savedMeta = localStorage.getItem(METADATA_KEY);
-                if(savedMeta) {
+                
+                // 1. 探测本地 Python 服务状态
+                try {
+                    const statusRes = await fetch('/api/status');
+                    const statusData = await statusRes.json();
+                    if (statusData && statusData.status === 'ok') {
+                        state.isServer = true;
+                    }
+                } catch(e) {
+                    state.isServer = false;
+                }
+                
+                // 2. 根据模式加载相应数据
+                if (state.isServer) {
                     try {
-                        const parsed = JSON.parse(savedMeta);
-                        state.artists = parsed.map(a => ({
+                        const dataRes = await fetch('/api/load');
+                        const data = await dataRes.json();
+                        state.artists = (data.artists || []).map(a => ({
                             ...a, id: String(a.id), name: a.name||a.tag||'Unknown', tag: a.tag||a.name||'',
                             categories: Array.isArray(a.categories) ? a.categories : [a.category || '未分类'],
                             socialLinks: Array.isArray(a.socialLinks) ? a.socialLinks : []
                         }));
-                    } catch(e) { state.artists = []; }
+                        state.categories = data.categories || ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
+                        state.presets = data.presets || [];
+                    } catch(e) {
+                        console.error("加载本地服务器数据失败:", e);
+                        state.artists = [];
+                        state.categories = ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
+                        state.presets = [];
+                    }
+                } else {
+                    const savedCats = localStorage.getItem(CATEGORY_KEY);
+                    state.categories = savedCats ? JSON.parse(savedCats) : ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
+                    const savedPresets = localStorage.getItem(PRESET_KEY);
+                    state.presets = savedPresets ? JSON.parse(savedPresets) : [];
+                    const savedMeta = localStorage.getItem(METADATA_KEY);
+                    if(savedMeta) {
+                        try {
+                            const parsed = JSON.parse(savedMeta);
+                            state.artists = parsed.map(a => ({
+                                ...a, id: String(a.id), name: a.name||a.tag||'Unknown', tag: a.tag||a.name||'',
+                                categories: Array.isArray(a.categories) ? a.categories : [a.category || '未分类'],
+                                socialLinks: Array.isArray(a.socialLinks) ? a.socialLinks : []
+                            }));
+                        } catch(e) { state.artists = []; }
+                    }
                 }
+                
                 renderAppStructure();
                 updateTheme();
                 renderAll();
             },
             
-            saveMeta: () => localStorage.setItem(METADATA_KEY, JSON.stringify(state.artists.map(({imageUrl, ...r})=>r))),
-            saveCats: () => localStorage.setItem(CATEGORY_KEY, JSON.stringify(state.categories)),
-            savePresets: () => localStorage.setItem(PRESET_KEY, JSON.stringify(state.presets)),
+            saveMeta: () => {
+                if (state.isServer) {
+                    fetch('/api/save-meta', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            artists: state.artists,
+                            categories: state.categories,
+                            presets: state.presets
+                        })
+                    }).catch(e => console.error("保存数据到服务器失败:", e));
+                } else {
+                    localStorage.setItem(METADATA_KEY, JSON.stringify(state.artists.map(({imageUrl, ...r})=>r)));
+                }
+            },
+            saveCats: () => {
+                if (state.isServer) {
+                    actions.saveMeta();
+                } else {
+                    localStorage.setItem(CATEGORY_KEY, JSON.stringify(state.categories));
+                }
+            },
+            savePresets: () => {
+                if (state.isServer) {
+                    actions.saveMeta();
+                } else {
+                    localStorage.setItem(PRESET_KEY, JSON.stringify(state.presets));
+                }
+            },
             setTheme: (t) => { state.theme = t; localStorage.setItem(THEME_KEY, t); updateTheme(); },
 
             setViewMode: (mode) => {
@@ -384,7 +444,17 @@
                 id = String(id);
                 if(!confirm("确定要删除这位画师吗？")) return;
                 
-                try { await db.delete(id); } catch(e) { console.warn('DB delete error:', e); }
+                if (state.isServer) {
+                    try {
+                        await fetch('/api/delete-image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id })
+                        });
+                    } catch(e) { console.warn('Server delete image error:', e); }
+                } else {
+                    try { await db.delete(id); } catch(e) { console.warn('DB delete error:', e); }
+                }
                 state.artists = state.artists.filter(a => String(a.id) !== id);
                 
                 // 清理所有选中状态
@@ -413,8 +483,29 @@
                 if(!name) return showToast("请输入预设名称");
                 const ids = Object.keys(state.selected);
                 const id = String(Date.now());
-                if(imageUrl && imageUrl.startsWith('data:')) { await db.put(id, imageUrl); state.pageImages[id] = imageUrl; }
-                const preset = { id, name, items: ids.map(mid => ({ id: mid, weight: state.selected[mid] })), createdAt: Date.now() };
+                
+                let targetImgUrl = '';
+                if(imageUrl && imageUrl.startsWith('data:')) {
+                    if (state.isServer) {
+                        try {
+                            const res = await fetch('/api/save-image', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id, image: imageUrl })
+                            });
+                            const rjson = await res.json();
+                            if (rjson.success) {
+                                state.pageImages[id] = rjson.url;
+                                targetImgUrl = rjson.url;
+                            }
+                        } catch(e) { console.error("保存预设图片到服务器失败:", e); }
+                    } else {
+                        await db.put(id, imageUrl);
+                        state.pageImages[id] = imageUrl;
+                    }
+                }
+                
+                const preset = { id, name, imageUrl: targetImgUrl, items: ids.map(mid => ({ id: mid, weight: state.selected[mid] })), createdAt: Date.now() };
                 state.presets.unshift(preset);
                 actions.savePresets();
                 state.modal = null; renderModal();
@@ -426,7 +517,14 @@
                 const p = state.presets.find(x => x.id === id);
                 if(!p) return;
                 let img = state.pageImages[id];
-                if(!img) img = await db.get(id);
+                if(!img) {
+                    if (state.isServer && p.imageUrl) {
+                        img = p.imageUrl;
+                    } else {
+                        img = await db.get(id);
+                    }
+                    if (img) state.pageImages[id] = img;
+                }
                 state.modal = 'edit-preset'; state.editingId = id;
                 state.formData = { name: p.name, imageUrl: img || '', items: p.items || [] };
                 renderModal();
@@ -435,8 +533,30 @@
                 const { name, imageUrl } = state.formData;
                 if(!name) return showToast("名称不能为空");
                 const id = state.editingId;
-                if(imageUrl && imageUrl.startsWith('data:')) { await db.put(id, imageUrl); state.pageImages[id] = imageUrl; }
-                state.presets = state.presets.map(p => { if(p.id === id) { return { ...p, name, items: state.formData.items }; } return p; });
+                const pObj = state.presets.find(x => x.id === id);
+                
+                let targetImgUrl = pObj ? (pObj.imageUrl || '') : '';
+                if(imageUrl && imageUrl.startsWith('data:')) {
+                    if (state.isServer) {
+                        try {
+                            const res = await fetch('/api/save-image', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id, image: imageUrl })
+                            });
+                            const rjson = await res.json();
+                            if (rjson.success) {
+                                state.pageImages[id] = rjson.url;
+                                targetImgUrl = rjson.url;
+                            }
+                        } catch(e) { console.error("更新预设图片到服务器失败:", e); }
+                    } else {
+                        await db.put(id, imageUrl);
+                        state.pageImages[id] = imageUrl;
+                    }
+                }
+                
+                state.presets = state.presets.map(p => { if(p.id === id) { return { ...p, name, imageUrl: targetImgUrl, items: state.formData.items }; } return p; });
                 actions.savePresets();
                 state.modal = null; renderModal();
                 if(state.viewMode === 'presets') renderGrid();
@@ -444,8 +564,20 @@
             },
             deletePreset: async (id) => {
                 if(!confirm("删除此预设？")) return;
+                
+                if (state.isServer) {
+                    try {
+                        await fetch('/api/delete-image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: String(id) })
+                        });
+                    } catch(e) { console.warn('Server delete image error:', e); }
+                } else {
+                    try { await db.delete(String(id)); } catch(e) { console.warn('DB delete error:', e); }
+                }
+                
                 state.presets = state.presets.filter(p => p.id !== String(id));
-                await db.delete(String(id));
                 actions.savePresets();
                 renderGrid(); state.modal = null; renderModal();
             },
@@ -485,8 +617,23 @@
                             if(existing) {
                                 // 存在则更新合并属性
                                 if(img && img.startsWith('data:')) {
-                                    await db.put(existing.id, img);
-                                    state.pageImages[existing.id] = img;
+                                    if (state.isServer) {
+                                        try {
+                                            const res = await fetch('/api/save-image', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ id: existing.id, image: img })
+                                            });
+                                            const rjson = await res.json();
+                                            if (rjson.success) {
+                                                state.pageImages[existing.id] = rjson.url;
+                                                existing.imageUrl = rjson.url;
+                                            }
+                                        } catch(e) { console.error("导入更新图片失败:", e); }
+                                    } else {
+                                        await db.put(existing.id, img);
+                                        state.pageImages[existing.id] = img;
+                                    }
                                 }
                                 if(item.danbooruCount !== undefined) existing.danbooruCount = parseInt(item.danbooruCount) || 0;
                                 if(Array.isArray(item.socialLinks)) existing.socialLinks = item.socialLinks;
@@ -495,7 +642,26 @@
                             } else {
                                 // 不存在则新增
                                 let id = String(Date.now() + Math.random());
-                                if(img && img.startsWith('data:')) await db.put(id, img);
+                                let targetImgUrl = '';
+                                if(img && img.startsWith('data:')) {
+                                    if (state.isServer) {
+                                        try {
+                                            const res = await fetch('/api/save-image', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ id, image: img })
+                                            });
+                                            const rjson = await res.json();
+                                            if (rjson.success) {
+                                                state.pageImages[id] = rjson.url;
+                                                targetImgUrl = rjson.url;
+                                            }
+                                        } catch(e) { console.error("导入新增图片失败:", e); }
+                                    } else {
+                                        await db.put(id, img);
+                                        state.pageImages[id] = img;
+                                    }
+                                }
                                 const artist = {
                                     id, name: name||'Unknown', tag,
                                     categories: cats,
@@ -503,6 +669,7 @@
                                     socialLinks: Array.isArray(item.socialLinks) ? item.socialLinks : [],
                                     createdAt: item.createdAt||Date.now()
                                 };
+                                if (targetImgUrl) artist.imageUrl = targetImgUrl;
                                 state.artists.push(artist); 
                                 addedCount++;
                             }
@@ -532,8 +699,28 @@
             exportData: async () => {
                 showToast("打包中...");
                 const data = [];
+                const getBase64FromUrl = async (url) => {
+                    try {
+                        const res = await fetch(url);
+                        const blob = await res.blob();
+                        return new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.readAsDataURL(blob);
+                        });
+                    } catch(e) {
+                        return '';
+                    }
+                };
                 for(const a of state.artists) {
-                    const img = await db.get(a.id);
+                    let img = '';
+                    if (state.isServer) {
+                        if (a.imageUrl && a.imageUrl.startsWith('/api/images/')) {
+                            img = await getBase64FromUrl(a.imageUrl);
+                        }
+                    } else {
+                        img = await db.get(a.id);
+                    }
                     data.push({...a, imageUrl: img||''});
                 }
                 const exportObj = { version: 12, artists: data, presets: state.presets };
@@ -558,7 +745,14 @@
                 let img = '';
                 if(a) {
                     img = state.pageImages[id];
-                    if(!img) img = await db.get(id);
+                    if(!img) {
+                        if (state.isServer && a.imageUrl) {
+                            img = a.imageUrl;
+                        } else {
+                            img = await db.get(id);
+                        }
+                        if (img) state.pageImages[id] = img;
+                    }
                 }
                 state.modal = 'add';
                 state.editingId = id && id !== 'null' ? id : null;
@@ -578,9 +772,25 @@
                 if(!tag) return showToast("Tag 必填");
                 const id = state.editingId ? String(state.editingId) : String(Date.now());
                 
+                let targetImgUrl = state.editingId ? (state.artists.find(a=>String(a.id)===id)?.imageUrl || '') : '';
                 if(imageUrl && imageUrl.startsWith('data:')) {
-                    await db.put(id, imageUrl);
-                    state.pageImages[id] = imageUrl;
+                    if (state.isServer) {
+                        try {
+                            const res = await fetch('/api/save-image', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id, image: imageUrl })
+                            });
+                            const rjson = await res.json();
+                            if (rjson.success) {
+                                state.pageImages[id] = rjson.url;
+                                targetImgUrl = rjson.url;
+                            }
+                        } catch(e) { console.error("保存图片到服务器失败:", e); }
+                    } else {
+                        await db.put(id, imageUrl);
+                        state.pageImages[id] = imageUrl;
+                    }
                 }
                 
                 let finalCats = categories && categories.length > 0 ? categories : ['未分类'];
@@ -590,6 +800,7 @@
                     socialLinks: Array.isArray(socialLinks) ? socialLinks.filter(u => u.trim()) : [],
                     createdAt: state.editingId ? (state.artists.find(a=>String(a.id)===id)?.createdAt||Date.now()) : Date.now()
                 };
+                if (targetImgUrl) newMeta.imageUrl = targetImgUrl;
                 
                 if(state.editingId) {
                     state.artists = state.artists.map(a => String(a.id)===id ? newMeta : a);
@@ -1068,7 +1279,10 @@
             container.innerHTML = `
                 <div class="p-4 border-b border-slate-200/50 dark:border-slate-700/50 space-y-3">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="font-bold text-lg dark:text-white">Artist Manager</span>
+                        <div class="flex flex-col">
+                            <span class="font-bold text-lg dark:text-white">Artist Manager</span>
+                            ${state.isServer ? '<span class="text-[9px] bg-green-100 dark:bg-green-950/30 text-green-600 dark:text-green-400 font-bold px-1.5 py-0.5 rounded-full w-max mt-0.5 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>本地硬盘模式</span>' : ''}
+                        </div>
                         <button onclick="actions.setTheme(state.theme==='dark'?'light':'dark')" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"><i data-lucide="${isDark?'sun':'moon'}" class="w-5 h-5"></i></button>
                     </div>
                     <div class="flex bg-slate-200 dark:bg-slate-800 rounded-lg p-1">
@@ -1270,9 +1484,15 @@
             items.forEach(a => {
                 const el = document.getElementById(`img-${a.id}`);
                 const cache = state.pageImages[a.id];
-                if(el && cache) { el.src=cache; el.classList.remove('opacity-0'); }
+                if (el) {
+                    if (cache) {
+                        el.src = cache; el.classList.remove('opacity-0');
+                    } else if (state.isServer && a.imageUrl) {
+                        el.src = a.imageUrl; el.classList.remove('opacity-0');
+                    }
+                }
             });
-            if(idsNeeded.length>0) {
+            if (!state.isServer && idsNeeded.length > 0) {
                 for(const id of idsNeeded) {
                     const img = await db.get(id);
                     if(img) {
@@ -1399,7 +1619,15 @@
             const tooltip = document.getElementById('artist-preview-tooltip');
             if (!tooltip) return;
             let img = state.pageImages[id];
-            if (!img) { img = await db.get(id); if (img) state.pageImages[id] = img; }
+            if (!img) {
+                const artist = state.artists.find(a => String(a.id) === id);
+                if (state.isServer && artist && artist.imageUrl) {
+                    img = artist.imageUrl;
+                } else {
+                    img = await db.get(id);
+                }
+                if (img) state.pageImages[id] = img;
+            }
             const artist = state.artists.find(a => String(a.id) === id);
             const name = artist ? artist.name : 'Unknown';
             const selIds = Object.keys(state.selected);
