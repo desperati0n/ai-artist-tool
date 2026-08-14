@@ -3,21 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Artist Manager v12.0</title>
+    <title>画师管理 · Spotlight</title>
     <meta name="description" content="A lightweight, local-first AI Artist & Prompt Manager. Organize, combine, and preview your artist styles seamlessly.">
     <meta name="author" content="desperati0n">
     <meta property="og:title" content="AI Artist Manager v12.0">
     <meta property="og:description" content="A lightweight, local-first AI Artist & Prompt Manager for Stable Diffusion and NovelAI.">
     <meta property="og:url" content="https://desperati0n.github.io/ai-artist-tool/">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2320201e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+    <script>
+        window.lucide = {
+            createIcons(root = document) {
+                const map = {
+                    'arrow-up-az': 'sort-ascending', 'check-circle': 'check-circle',
+                    'chevron-down': 'caret-down', 'chevron-left': 'caret-left',
+                    'chevron-right': 'caret-right', 'chevron-up': 'caret-up',
+                    'clipboard-paste': 'clipboard-text', 'edit-2': 'pencil-simple',
+                    'edit-3': 'pencil-simple', 'help-circle': 'question',
+                    'layout-grid': 'grid-four', 'package-open': 'package',
+                    'refresh-ccw': 'arrow-clockwise', 'shield-alert': 'warning',
+                    'save': 'floppy-disk', 'trash-2': 'trash', 'wand-2': 'sliders-horizontal',
+                    'zap': 'lightning', 'rocket': 'play', 'layers': 'stack'
+                };
+                (root || document).querySelectorAll('[data-lucide]').forEach((icon) => {
+                    const source = icon.getAttribute('data-lucide');
+                    icon.removeAttribute('data-lucide');
+                    icon.classList.add('ph-bold', `ph-${map[source] || source}`);
+                });
+            }
+        };
+    </script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'] },
+                    fontFamily: { sans: ['Segoe UI Variable', 'SF Pro Display', 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'] },
                     animation: { 'fade-in': 'fadeIn 0.2s ease-out', 'slide-up': 'slideUp 0.3s ease-out' },
                     keyframes: { 
                         fadeIn: { from: { opacity: 0, transform: 'scale(0.98)' }, to: { opacity: 1, transform: 'scale(1)' } },
@@ -29,8 +51,8 @@
     </script>
     <style>
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
-        body { background: linear-gradient(135deg, #e0e7ff, #f3e8ff, #fce7f3); color: #1e293b; }
-        .dark body { background: linear-gradient(135deg, #0f172a, #1e1b4b, #312e81); color: #f8fafc; }
+        body { background: #f6f5f4; color: #31302e; }
+        .dark body { background: #191919; color: #f1f1ef; }
         #app { display: flex; flex-direction: column; height: 100%; position: relative; z-index: 1; }
 
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -49,20 +71,20 @@
         .main-area { flex: 1; display: flex; flex-direction: column; border-radius: 1.5rem; overflow: hidden; position: relative; }
         .sidebar-right { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; border-radius: 1.5rem; overflow: hidden; }
 
-        .card-selected { outline: 3px solid #6366f1; outline-offset: 2px; transform: scale(0.96); }
-        .dark .card-selected { outline: 3px solid #818cf8; outline-offset: 2px; }
+        .card-selected { outline: 3px solid var(--nt-primary); outline-offset: 2px; transform: scale(0.96); }
+        .dark .card-selected { outline: 3px solid var(--nt-primary); outline-offset: 2px; }
         .batch-selected { outline: 3px solid #ef4444; outline-offset: 2px; transform: scale(0.96); }
         .capsule-bg { transition: all 0.3s ease; }
 
         .artist-drag-item { cursor: grab; transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
         .artist-drag-item:active { cursor: grabbing; }
         .artist-drag-item.dragging { opacity: 0.4; transform: scale(0.96); }
-        .artist-drag-item.drag-over-top { border-top: 2px solid #6366f1 !important; }
-        .artist-drag-item.drag-over-bottom { border-bottom: 2px solid #6366f1 !important; }
+        .artist-drag-item.drag-over-top { border-top: 2px solid var(--nt-primary) !important; }
+        .artist-drag-item.drag-over-bottom { border-bottom: 2px solid var(--nt-primary) !important; }
         .artist-drag-handle { cursor: grab; color: #94a3b8; transition: color 0.15s ease; }
-        .artist-drag-handle:hover { color: #6366f1; }
+        .artist-drag-handle:hover { color: var(--nt-primary); }
         .artist-move-btn { padding: 2px; border-radius: 4px; color: #94a3b8; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; }
-        .artist-move-btn:hover { color: #6366f1; background: rgba(99,102,241,0.1); }
+        .artist-move-btn:hover { color: var(--nt-primary); background: var(--nt-blue-soft); }
         .artist-move-btn:disabled { opacity: 0.2; pointer-events: none; }
 
         @media (max-width: 1280px) { .sidebar-right { width: 300px; } .sidebar-left { width: 200px; } }
@@ -84,8 +106,8 @@
         .dark #artist-preview-tooltip .preview-label { color: #e2e8f0; }
         #artist-preview-tooltip .preview-pct { font-size: 10px; color: #94a3b8; font-weight: 600; margin-left: 4px; }
         .pie-canvas-wrap { position: relative; }
-        .ghost-artist { opacity: 0.6; border: 1px dashed #94a3b8 !important; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(148,163,175,0.06) 4px, rgba(148,163,175,0.06) 8px) !important; }
-        .dark .ghost-artist { border-color: #475569 !important; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(71,85,105,0.15) 4px, rgba(71,85,105,0.15) 8px) !important; }
+        .ghost-artist { opacity: 0.64; border: 1px dashed #a39e98 !important; background: #f6f5f4 !important; }
+        .dark .ghost-artist { border-color: #4b4b4b !important; background: #252525 !important; }
         .ghost-artist .ghost-badge { display: inline-flex; align-items: center; gap: 2px; font-size: 9px; font-weight: 700; color: #f59e0b; background: rgba(245,158,11,0.12); padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
         .import-prompt-btn { transition: all 0.2s ease; }
         .import-prompt-btn:hover { transform: scale(1.02); }
@@ -94,19 +116,17 @@
         .social-link-icon {
             display: inline-flex; align-items: center; justify-content: center;
             width: 22px; height: 22px; border-radius: 6px;
-            background: rgba(99,102,241,0.12); color: #6366f1;
+            background: var(--nt-blue-soft); color: var(--nt-primary);
             font-size: 10px; font-weight: 800;
             transition: all 0.15s ease; text-decoration: none; cursor: pointer;
         }
-        .social-link-icon:hover { background: #6366f1; color: #fff; transform: scale(1.15); }
-        .dark .social-link-icon { background: rgba(129,140,248,0.15); color: #818cf8; }
-        .dark .social-link-icon:hover { background: #818cf8; color: #0f172a; }
+        .social-link-icon:hover { background: var(--nt-primary); color: var(--nt-primary-contrast); transform: scale(1.15); }
+        .dark .social-link-icon { background: var(--nt-blue-soft); color: var(--nt-primary); }
+        .dark .social-link-icon:hover { background: var(--nt-primary); color: var(--nt-primary-contrast); }
         .social-link-more { font-size: 9px; color: #94a3b8; font-weight: 700; margin-left: 2px; }
         .db-progress-bar { height: 8px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
         .dark .db-progress-bar { background: #334155; }
-        .db-progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #f97316, #f59e0b, #eab308); transition: width 0.3s ease; position: relative; overflow: hidden; }
-        .db-progress-fill::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); animation: dbShimmer 1.5s infinite; }
-        @keyframes dbShimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .db-progress-fill { height: 100%; border-radius: 99px; background: var(--nt-primary); transition: width 0.3s ease; position: relative; overflow: hidden; }
         .db-stat-card { display: flex; flex-direction: column; align-items: center; padding: 10px 4px; border-radius: 12px; flex: 1; min-width: 0; }
         .db-stat-value { font-size: 20px; font-weight: 800; line-height: 1.2; }
         .db-stat-label { font-size: 9px; color: #94a3b8; font-weight: 700; text-transform: uppercase; margin-top: 2px; }
@@ -115,11 +135,594 @@
         @keyframes dbPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .db-pulse { animation: dbPulse 1.5s ease-in-out infinite; }
         .db-mode-btn { flex: 1; padding: 8px 4px; border-radius: 10px; font-size: 12px; font-weight: 700; border: 2px solid transparent; transition: all 0.15s ease; cursor: pointer; }
-        .db-mode-btn.active { background: #6366f1; color: white; border-color: #6366f1; box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
+        .db-mode-btn.active { background: var(--nt-primary); color: var(--nt-primary-contrast); border-color: var(--nt-primary); box-shadow: none; }
         .db-mode-btn:not(.active) { background: #f1f5f9; color: #64748b; }
         .db-mode-btn:not(.active):hover { background: #e2e8f0; }
         .dark .db-mode-btn:not(.active) { background: #1e293b; color: #94a3b8; }
         .dark .db-mode-btn:not(.active):hover { background: #334155; }
+
+        :root {
+            --nt-primary: #20201e;
+            --nt-primary-active: #0d0d0c;
+            --nt-primary-contrast: #f5f1e8;
+            --nt-canvas: #f6f5f4;
+            --nt-surface: #ffffff;
+            --nt-surface-hover: #f1f1ef;
+            --nt-ink: #2f3437;
+            --nt-secondary: #615d59;
+            --nt-faint: #a39e98;
+            --nt-line: #e6e6e6;
+            --nt-danger: #9f2f2d;
+            --nt-danger-soft: #fdebec;
+            --nt-blue-soft: #ece8df;
+            --nt-spot-strong: rgba(32, 32, 30, .92);
+            --nt-spot-mid: rgba(32, 32, 30, .3);
+            --nt-spot-wash: rgba(32, 32, 30, .08);
+            --nt-spot-shadow: rgba(32, 32, 30, .22);
+            --nt-green-soft: #edf3ec;
+            --nt-yellow-soft: #fbf3db;
+            --nt-card-frame: #e6e6e6;
+            --nt-card-frame-hover: #d2d2d2;
+            --nt-radius-sm: 5px;
+            --nt-radius-md: 8px;
+            --nt-radius-lg: 12px;
+        }
+
+        .dark {
+            --nt-primary: #e8e3d9;
+            --nt-primary-active: #f5f1e8;
+            --nt-primary-contrast: #181817;
+            --nt-canvas: #191919;
+            --nt-surface: #202020;
+            --nt-surface-hover: #2a2a2a;
+            --nt-ink: #f1f1ef;
+            --nt-secondary: #b4b4b0;
+            --nt-faint: #7b7b78;
+            --nt-line: #373737;
+            --nt-danger: #e08b88;
+            --nt-danger-soft: #3a2525;
+            --nt-blue-soft: #302e2a;
+            --nt-spot-strong: rgba(245, 241, 232, .96);
+            --nt-spot-mid: rgba(232, 227, 217, .4);
+            --nt-spot-wash: rgba(232, 227, 217, .12);
+            --nt-spot-shadow: rgba(232, 227, 217, .24);
+            --nt-green-soft: #26372a;
+            --nt-yellow-soft: #3d3524;
+            --nt-card-frame: #373737;
+            --nt-card-frame-hover: #4a4a4a;
+        }
+
+        * { box-sizing: border-box; }
+        body,
+        .dark body {
+            background: var(--nt-canvas);
+            color: var(--nt-ink);
+            font-family: 'Segoe UI Variable', 'SF Pro Display', 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            letter-spacing: 0;
+        }
+        button, input, textarea, select { font: inherit; }
+        button { min-height: 36px; }
+        button:active { transform: scale(.98); }
+        button:focus-visible,
+        input:focus-visible,
+        textarea:focus-visible,
+        select:focus-visible,
+        [role="button"]:focus-visible {
+            outline: 2px solid var(--nt-primary) !important;
+            outline-offset: 2px;
+        }
+        #app [class*="shadow"] { box-shadow: none !important; }
+
+        .layout-container {
+            display: grid;
+            grid-template-columns: 14.5rem minmax(0, 1fr) 22rem;
+            gap: 0;
+            padding: 0;
+            min-height: 0;
+            background: var(--nt-canvas);
+        }
+        .glass-panel,
+        .dark .glass-panel {
+            background: var(--nt-surface);
+            border: 0;
+            backdrop-filter: none;
+            box-shadow: none;
+        }
+        .sidebar-left,
+        .main-area,
+        .sidebar-right {
+            width: auto;
+            min-width: 0;
+            border-radius: 0;
+        }
+        .sidebar-left { border-right: 1px solid var(--nt-line); }
+        .sidebar-right { border-left: 1px solid var(--nt-line); }
+
+        #main-header {
+            height: 3.75rem !important;
+            min-height: 3.75rem;
+            padding: 0 1rem !important;
+            border-bottom: 1px solid var(--nt-line) !important;
+            background: var(--nt-surface) !important;
+            backdrop-filter: none !important;
+        }
+        .tool-header {
+            display: grid;
+            grid-template-columns: minmax(14rem, 34rem) 1fr auto;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+        }
+        .tool-search { position: relative; }
+        .tool-search i { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); color: var(--nt-faint); }
+        .tool-search input {
+            width: 100%;
+            min-height: 36px;
+            padding: .4rem .75rem .4rem 2.15rem;
+            border: 1px solid var(--nt-line);
+            border-radius: var(--nt-radius-md);
+            background: var(--nt-canvas);
+            color: var(--nt-ink);
+            font-size: .875rem;
+            transition: border-color .16s ease, background .16s ease;
+        }
+        .tool-search input:focus { border-color: var(--nt-primary); background: var(--nt-surface); outline: none; }
+        .tool-search input::placeholder { color: var(--nt-faint); }
+        .tool-status { color: var(--nt-faint); font-size: .75rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .tool-actions { display: flex; align-items: center; gap: .4rem; }
+        .utility-button,
+        .primary-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .35rem;
+            min-height: 36px;
+            padding: .35rem .75rem;
+            border: 1px solid var(--nt-line);
+            border-radius: var(--nt-radius-md);
+            background: var(--nt-surface);
+            color: var(--nt-ink);
+            font-size: .8125rem;
+            font-weight: 500;
+            transition: background .16s ease, border-color .16s ease, transform .12s ease;
+        }
+        .utility-button:hover { background: var(--nt-surface-hover); border-color: #d3d3d3; }
+        .primary-button { border-color: var(--nt-primary); background: var(--nt-primary); color: var(--nt-primary-contrast); }
+        .primary-button:hover { background: var(--nt-primary-active); border-color: var(--nt-primary-active); }
+        .panel-toggle { display: none; }
+
+        /* Pointer-origin fill adapted from the supplied OriginButton component. */
+        .origin-button {
+            --origin-x: 50%;
+            --origin-y: 50%;
+            --origin-size: 0px;
+            --origin-fill: var(--nt-primary);
+            --origin-active-text: var(--nt-primary-contrast);
+            position: relative !important;
+            overflow: hidden !important;
+            isolation: isolate;
+            touch-action: manipulation;
+            transition: color .3s cubic-bezier(.16,1,.3,1), border-color .18s ease, background-color .18s ease, transform .12s ease !important;
+        }
+        .origin-button::before {
+            content: "";
+            position: absolute;
+            z-index: 0;
+            left: var(--origin-x);
+            top: var(--origin-y);
+            width: var(--origin-size);
+            height: var(--origin-size);
+            border-radius: 999px;
+            background: var(--origin-fill);
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform .5s cubic-bezier(.16,1,.3,1);
+            will-change: transform;
+        }
+        .origin-button.is-origin-active::before { transform: translate(-50%, -50%) scale(1); }
+        .origin-button__content {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: inherit;
+            min-width: 0;
+            color: inherit;
+            line-height: 1;
+            pointer-events: none;
+        }
+        .origin-button.is-origin-active:not(:disabled) { color: var(--origin-active-text) !important; }
+        .origin-button.is-origin-active:not(:disabled) .origin-button__content,
+        .origin-button.is-origin-active:not(:disabled) .origin-button__content * { color: inherit !important; }
+        .origin-button[data-origin-pressed="true"] { transform: scale(.985) !important; }
+        .origin-button:focus-visible {
+            outline: 2px solid var(--nt-primary) !important;
+            outline-offset: 2px;
+        }
+        .origin-button:disabled { pointer-events: none; opacity: .45; }
+        .origin-button[class*="text-red"],
+        .origin-button[class*="bg-red"] {
+            --origin-fill: var(--nt-danger);
+            --origin-active-text: #ffffff;
+        }
+        .dark .origin-button {
+            --origin-fill: var(--nt-primary-active);
+            --origin-active-text: var(--nt-primary-contrast);
+        }
+        .dark .origin-button[class*="text-red"],
+        .dark .origin-button[class*="bg-red"] {
+            --origin-fill: #e0524d;
+            --origin-active-text: #ffffff;
+        }
+
+        #grid-container {
+            padding: 1rem !important;
+            background: var(--nt-canvas) !important;
+            scrollbar-gutter: stable;
+        }
+        #grid-container > .grid {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(9.75rem, 1fr)) !important;
+            grid-auto-flow: dense;
+            gap: .75rem !important;
+            padding-bottom: .5rem !important;
+        }
+        .glass-card,
+        .dark .glass-card {
+            display: flex;
+            flex-direction: column;
+            border: 0 !important;
+            border-radius: var(--nt-radius-lg) !important;
+            padding: 1px;
+            background: var(--nt-card-frame) !important;
+            color: var(--nt-ink);
+            box-shadow: none;
+            backdrop-filter: none;
+            overflow: visible !important;
+            transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+        }
+        .glass-card:hover {
+            background: var(--nt-card-frame-hover) !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,.04) !important;
+        }
+        .glass-card:active { transform: scale(.99) !important; }
+
+        /* Pointer-following spotlight, adapted from the supplied React GlowCard. */
+        .spotlight-card {
+            --spot-x: 50%;
+            --spot-y: 50%;
+            --spot-radius: 10rem;
+            isolation: isolate;
+        }
+        .spotlight-card::before,
+        .spotlight-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .18s ease;
+        }
+        .spotlight-card::before {
+            z-index: 31;
+            padding: 1px;
+            background: radial-gradient(
+                var(--spot-radius) circle at var(--spot-x) var(--spot-y),
+                var(--nt-spot-strong),
+                var(--nt-spot-mid) 34%,
+                transparent 72%
+            );
+            filter: drop-shadow(0 0 5px var(--nt-spot-shadow));
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+        .spotlight-card::after {
+            z-index: 30;
+            background: radial-gradient(
+                calc(var(--spot-radius) * .88) circle at var(--spot-x) var(--spot-y),
+                var(--nt-spot-wash),
+                transparent 74%
+            );
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .spotlight-card:hover::before,
+            .spotlight-card:hover::after { opacity: 1; }
+        }
+        .glass-card > div:first-child {
+            flex: 0 0 auto;
+            width: 100%;
+            border-radius: calc(var(--nt-radius-lg) - 1px) calc(var(--nt-radius-lg) - 1px) 0 0 !important;
+            overflow: hidden;
+            background: var(--nt-surface-hover) !important;
+        }
+        .glass-card > .p-3,
+        .glass-card > .p-4 {
+            flex: 1 1 auto;
+            width: 100%;
+            border-radius: 0 0 calc(var(--nt-radius-lg) - 1px) calc(var(--nt-radius-lg) - 1px) !important;
+            overflow: hidden;
+            background: var(--nt-surface) !important;
+            color: var(--nt-ink) !important;
+            backdrop-filter: none !important;
+        }
+        .glass-card h3,
+        .glass-card .text-slate-800,
+        .glass-card .dark\:text-slate-100 { color: var(--nt-ink) !important; }
+        .glass-card .text-slate-400,
+        .glass-card .text-slate-500 { color: var(--nt-secondary) !important; }
+        .glass-card .absolute.top-2.left-2 {
+            background: rgba(47,52,55,.84) !important;
+            color: white !important;
+            border-radius: var(--nt-radius-sm) !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+        }
+        .glass-card.card-selected,
+        .dark .glass-card.card-selected,
+        .glass-card.card-selected:hover,
+        .dark .glass-card.card-selected:hover {
+            outline: 0 !important;
+            background: var(--nt-primary) !important;
+            transform: none;
+        }
+        .glass-card.batch-selected,
+        .glass-card.batch-selected:hover { outline: 0 !important; background: var(--nt-danger) !important; transform: none; }
+        .card-selected::before,
+        .card-selected::after,
+        .batch-selected::before,
+        .batch-selected::after { opacity: 0 !important; }
+        [id^="check-"] { background: var(--nt-primary) !important; color: var(--nt-primary-contrast) !important; box-shadow: none !important; }
+
+        .empty-state-icon {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            width: 48px !important;
+            height: 48px !important;
+            margin-bottom: 1rem;
+            color: var(--nt-faint);
+            font-size: 32px !important;
+            line-height: 1 !important;
+            vertical-align: middle;
+        }
+
+        #pagination-container {
+            height: 2.75rem !important;
+            padding: 0 1rem !important;
+            border-top: 1px solid var(--nt-line) !important;
+            background: var(--nt-surface) !important;
+            color: var(--nt-secondary) !important;
+            font-size: .75rem !important;
+        }
+        #pagination-container button { min-width: 32px; min-height: 32px; border-radius: var(--nt-radius-md) !important; color: var(--nt-ink); }
+
+        #sidebar-left-container > div:first-child { padding: .9rem !important; border-bottom: 1px solid var(--nt-line) !important; }
+        .app-identity { color: var(--nt-ink) !important; font-size: .95rem !important; font-weight: 600 !important; }
+        .theme-control { width: 36px; min-height: 36px; padding: 0; border-radius: var(--nt-radius-md) !important; color: var(--nt-secondary) !important; }
+        .theme-control:hover { background: var(--nt-surface-hover) !important; }
+        .view-switch {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            padding: 2px !important;
+            border: 1px solid var(--nt-line);
+            border-radius: var(--nt-radius-md) !important;
+            background: var(--nt-canvas) !important;
+        }
+        .view-switch button { min-height: 32px; border-radius: 6px !important; background: transparent !important; color: var(--nt-secondary) !important; box-shadow: none !important; }
+        .view-switch button.is-active { background: var(--nt-surface) !important; color: var(--nt-ink) !important; box-shadow: 0 1px 2px rgba(0,0,0,.04) !important; }
+        .sidebar-tool,
+        .sidebar-secondary,
+        .sidebar-primary {
+            border: 1px solid var(--nt-line) !important;
+            border-radius: var(--nt-radius-md) !important;
+            background: var(--nt-surface) !important;
+            color: var(--nt-ink) !important;
+            box-shadow: none !important;
+        }
+        .sidebar-tool:hover,
+        .sidebar-secondary:hover { background: var(--nt-surface-hover) !important; }
+        .sidebar-tool .origin-button__content { width: 100%; justify-content: space-between; }
+        .sidebar-secondary,
+        .sidebar-primary,
+        .new-category,
+        .theme-control,
+        #pagination-container button,
+        .glass-card button.origin-button,
+        .artist-drag-item button.origin-button,
+        #modal-container button.origin-button {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .sidebar-primary { border-color: var(--nt-primary) !important; background: var(--nt-primary) !important; color: var(--nt-primary-contrast) !important; }
+        .sidebar-primary:hover { background: var(--nt-primary-active) !important; }
+
+        #cat-list-scroll { padding: .75rem .6rem !important; }
+        .sidebar-label { margin: 0 .4rem .4rem !important; color: var(--nt-faint) !important; font-size: .68rem !important; font-weight: 600 !important; letter-spacing: .03em !important; text-transform: none !important; }
+        .category-list { position: relative; display: flex; flex-direction: column; gap: 2px !important; }
+        .category-dock-pill {
+            position: absolute;
+            inset: 0 0 auto;
+            z-index: 0;
+            height: 36px;
+            border-radius: var(--nt-radius-md) !important;
+            background: var(--nt-blue-soft) !important;
+            box-shadow: inset 3px 0 0 var(--nt-primary);
+            pointer-events: none;
+            transform: translate3d(0, var(--dock-y, 0px), 0);
+            transition: transform .42s cubic-bezier(.16,1,.3,1), height .32s cubic-bezier(.16,1,.3,1), opacity .16s ease;
+            will-change: transform, height;
+        }
+        .category-item {
+            position: relative;
+            z-index: 1;
+            border-radius: var(--nt-radius-md) !important;
+            padding: 0 !important;
+            background: transparent !important;
+            transition: transform .28s cubic-bezier(.16,1,.3,1), color .16s ease;
+        }
+        .category-item:not(.is-active):hover { transform: translateX(2px); }
+        .category-item.is-active { background: transparent !important; box-shadow: none !important; }
+        .category-item > button:first-child {
+            min-height: 36px;
+            padding: .4rem .65rem !important;
+            color: var(--nt-ink) !important;
+            font-size: .8125rem !important;
+            font-weight: 500 !important;
+            transition: color .18s ease, transform .22s cubic-bezier(.16,1,.3,1);
+        }
+        .category-item.is-active > button:first-child { color: var(--nt-primary-active) !important; }
+        .category-item > button:first-child:active { transform: scale(.985); }
+        .category-item > button:first-child:focus-visible { outline: 2px solid var(--nt-primary); outline-offset: -2px; border-radius: var(--nt-radius-md); }
+        .category-actions { opacity: 0; transition: opacity .16s ease; }
+        .category-item:hover .category-actions,
+        .category-item.is-active .category-actions { opacity: 1; }
+        .category-item .count { color: var(--nt-faint); font-size: .7rem; font-variant-numeric: tabular-nums; }
+        .new-category { border: 1px solid var(--nt-line) !important; border-radius: var(--nt-radius-md) !important; color: var(--nt-secondary) !important; font-weight: 500 !important; }
+        .new-category:hover { background: var(--nt-surface-hover) !important; color: var(--nt-ink) !important; }
+
+        #sidebar-right-container > div:first-child { padding: .9rem 1rem !important; border-bottom: 1px solid var(--nt-line) !important; }
+        #sidebar-right-container h2 { color: var(--nt-ink) !important; font-size: .95rem !important; font-weight: 600 !important; }
+        #sidebar-right-container h2 i { color: var(--nt-secondary) !important; }
+        #sidebar-right-container > div:first-child > span { background: var(--nt-blue-soft) !important; color: var(--nt-primary) !important; border-radius: 999px !important; box-shadow: none !important; }
+        .pie-canvas-wrap { padding: .6rem 1rem !important; border-bottom: 1px solid var(--nt-line) !important; background: var(--nt-surface); }
+        #pie-chart-cv { height: 116px !important; }
+        #sidebar-right-container > .bg-slate-50 { background: var(--nt-canvas) !important; border-color: var(--nt-line) !important; }
+        .format-switch { border: 1px solid var(--nt-line); border-radius: var(--nt-radius-md) !important; background: var(--nt-surface) !important; }
+        .format-switch .capsule-bg { border-radius: 6px !important; background: var(--nt-primary) !important; box-shadow: none !important; }
+        .format-active { color: var(--nt-primary-contrast) !important; }
+        .format-inactive { color: var(--nt-secondary) !important; }
+        #right-artist-list-scroll { padding: .75rem !important; background: var(--nt-surface); }
+        .artist-drag-item,
+        .dark .artist-drag-item {
+            border: 1px solid transparent !important;
+            border-bottom-color: var(--nt-line) !important;
+            border-radius: 0 !important;
+            background: var(--nt-surface) !important;
+            color: var(--nt-ink);
+            box-shadow: none !important;
+        }
+        .artist-drag-item:hover { background: var(--nt-surface-hover) !important; }
+        .artist-drag-item .text-slate-700,
+        .artist-drag-item .dark\:text-slate-200 { color: var(--nt-ink) !important; }
+        .artist-drag-item .text-slate-400 { color: var(--nt-secondary) !important; }
+        .artist-drag-item .bg-white,
+        .dark .artist-drag-item .dark\:bg-slate-800 { background: var(--nt-surface) !important; border-color: var(--nt-line) !important; }
+
+        #sidebar-right-container > div:last-child { padding: .75rem !important; border-top: 1px solid var(--nt-line) !important; background: var(--nt-canvas) !important; backdrop-filter: none !important; }
+        #res-box {
+            height: 5.5rem !important;
+            padding: .65rem !important;
+            border: 1px solid #dddddd !important;
+            border-radius: var(--nt-radius-sm) !important;
+            background: var(--nt-surface) !important;
+            color: var(--nt-ink) !important;
+            box-shadow: none !important;
+            font-size: .75rem !important;
+            line-height: 1.5;
+        }
+        #res-box:focus { border-color: var(--nt-primary) !important; }
+        #res-box + div { display: grid !important; grid-template-columns: 1fr 1fr 1.35fr 40px; gap: .4rem !important; }
+        #res-box + div button { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-height: 36px; border: 1px solid var(--nt-line) !important; border-radius: var(--nt-radius-md) !important; background: var(--nt-surface) !important; color: var(--nt-ink) !important; box-shadow: none !important; line-height: 1 !important; }
+        #res-box + div button .origin-button__content { width: 100%; justify-content: center; }
+        #res-box + div button:last-child { padding: 0 !important; }
+        #res-box + div button:nth-child(3) { border-color: var(--nt-primary) !important; background: var(--nt-primary) !important; color: var(--nt-primary-contrast) !important; }
+        #res-box + div button:last-child { color: var(--nt-danger) !important; }
+
+        #modal-container .fixed.inset-0 > .absolute { background: rgba(0,0,0,.42) !important; backdrop-filter: none !important; }
+        #modal-container .fixed.inset-0 > div:last-child { border: 1px solid var(--nt-line); border-radius: var(--nt-radius-lg) !important; background: var(--nt-surface) !important; color: var(--nt-ink); box-shadow: 0 12px 32px rgba(0,0,0,.08) !important; }
+        #modal-container input,
+        #modal-container textarea,
+        #modal-container select { border: 1px solid #dddddd !important; border-radius: var(--nt-radius-sm) !important; background: var(--nt-surface) !important; color: var(--nt-ink) !important; }
+        #modal-container .bg-gradient-to-r { background-image: none !important; background-color: var(--nt-primary) !important; }
+        #modal-container button[class*="bg-indigo-600"],
+        #modal-container button[class*="bg-green-500"],
+        #modal-container button[class*="bg-blue-600"] { background: var(--nt-primary) !important; border-color: var(--nt-primary) !important; box-shadow: none !important; }
+        #modal-container button[class*="bg-indigo-600"],
+        #modal-container button[class*="bg-green-500"],
+        #modal-container button[class*="bg-blue-600"] { color: var(--nt-primary-contrast) !important; }
+        #modal-container button { box-shadow: none !important; }
+        [class~="text-indigo-600"],
+        [class~="text-indigo-500"],
+        [class~="dark:text-indigo-400"] { color: var(--nt-primary) !important; }
+        [class~="bg-indigo-100"],
+        [class~="bg-indigo-50"] { background-color: var(--nt-blue-soft) !important; }
+        [class~="bg-indigo-600"],
+        [class~="bg-indigo-500"] { background-color: var(--nt-primary) !important; color: var(--nt-primary-contrast) !important; }
+        [class~="border-indigo-600"] { border-color: var(--nt-primary) !important; }
+        input[class*="accent-indigo"] { accent-color: var(--nt-primary); }
+        #toast-container > div { border-radius: var(--nt-radius-md) !important; background: var(--nt-ink) !important; color: var(--nt-surface) !important; box-shadow: 0 4px 18px rgba(0,0,0,.08) !important; }
+
+        .panel-scrim { display: none; }
+        .panel-close { display: none; }
+
+        @media (max-width: 1180px) {
+            .layout-container { grid-template-columns: 13rem minmax(0, 1fr); }
+            .sidebar-right {
+                display: flex;
+                position: fixed;
+                inset: 0 0 0 auto;
+                z-index: 80;
+                width: min(22rem, 92vw);
+                transform: translateX(101%);
+                border-left: 1px solid var(--nt-line);
+                transition: transform .2s ease;
+            }
+            .sidebar-right.is-open { transform: translateX(0); }
+            .composer-toggle,
+            .sidebar-right .panel-close { display: inline-flex; }
+            .panel-close { align-items: center; justify-content: center; width: 36px; min-height: 36px; border-radius: var(--nt-radius-md); color: var(--nt-secondary); }
+            .panel-scrim { position: fixed; inset: 0; z-index: 70; border: 0; border-radius: 0; background: rgba(0,0,0,.32); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+            .panel-scrim.is-open { display: block; opacity: 1; pointer-events: auto; }
+        }
+        @media (max-width: 768px) {
+            .layout-container { display: block; }
+            .sidebar-left {
+                display: flex;
+                position: fixed;
+                inset: 0 auto 0 0;
+                z-index: 80;
+                width: min(19rem, 88vw);
+                transform: translateX(-101%);
+                border-right: 1px solid var(--nt-line);
+                transition: transform .2s ease;
+            }
+            .sidebar-left.is-open { transform: translateX(0); }
+            .filter-toggle,
+            .sidebar-left .panel-close { display: inline-flex; }
+            #main-header { height: auto !important; min-height: 6.75rem; padding-block: .65rem !important; }
+            .tool-header { grid-template-columns: 1fr auto; gap: .5rem; }
+            .tool-search { grid-column: 1 / -1; grid-row: 2; }
+            .tool-status { display: none; }
+            .tool-actions { grid-column: 2; grid-row: 1; }
+            .tool-actions .utility-button,
+            .tool-actions .primary-button { width: 36px; padding: 0; }
+            .tool-actions button:not(.origin-button) > span,
+            .tool-actions button.origin-button > .origin-button__content > span { display: none; }
+            #grid-container { padding: .75rem !important; }
+            #grid-container > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .6rem !important; }
+        }
+        @media (max-width: 480px) {
+            #grid-container > .grid { grid-template-columns: 1fr !important; }
+        }
+
+        /* Final contrast guard: component-specific button colors must not beat the animated fill state. */
+        #app button.origin-button.is-origin-active:not(:disabled),
+        #app button.origin-button.is-origin-active:not(:disabled) .origin-button__content,
+        #app button.origin-button.is-origin-active:not(:disabled) .origin-button__content *,
+        #modal-container button.origin-button.is-origin-active:not(:disabled),
+        #modal-container button.origin-button.is-origin-active:not(:disabled) .origin-button__content,
+        #modal-container button.origin-button.is-origin-active:not(:disabled) .origin-button__content * {
+            color: var(--origin-active-text) !important;
+            -webkit-text-fill-color: var(--origin-active-text) !important;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
+        }
     </style>
 </head>
 <body>
@@ -210,100 +813,41 @@
             selectedOrder: [], // explicit order for selected artists
             batchMode: false,
             batchSelected: {}, 
-            promptFormat: 'webui',
+            promptFormat: 'novelai',
             pageImages: {}, 
             modal: null, 
             editingId: null,
             formData: {},
-            theme: 'light',
-            isServer: false // 是否为本地 Python 服务模式
+            theme: 'light'
         };
 
         const actions = {
             init: async () => {
                 state.theme = localStorage.getItem(THEME_KEY) || 'light';
-                
-                // 1. 探测本地 Python 服务状态
-                try {
-                    const statusRes = await fetch('/api/status');
-                    const statusData = await statusRes.json();
-                    if (statusData && statusData.status === 'ok') {
-                        state.isServer = true;
-                    }
-                } catch(e) {
-                    state.isServer = false;
-                }
-                
-                // 2. 根据模式加载相应数据
-                if (state.isServer) {
+                const savedCats = localStorage.getItem(CATEGORY_KEY);
+                state.categories = savedCats ? JSON.parse(savedCats) : ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
+                const savedPresets = localStorage.getItem(PRESET_KEY);
+                state.presets = savedPresets ? JSON.parse(savedPresets) : [];
+                const savedMeta = localStorage.getItem(METADATA_KEY);
+                if(savedMeta) {
                     try {
-                        const dataRes = await fetch('/api/load');
-                        const data = await dataRes.json();
-                        state.artists = (data.artists || []).map(a => ({
+                        const parsed = JSON.parse(savedMeta);
+                        state.artists = parsed.map(a => ({
                             ...a, id: String(a.id), name: a.name||a.tag||'Unknown', tag: a.tag||a.name||'',
                             categories: Array.isArray(a.categories) ? a.categories : [a.category || '未分类'],
                             socialLinks: Array.isArray(a.socialLinks) ? a.socialLinks : []
                         }));
-                        state.categories = data.categories || ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
-                        state.presets = data.presets || [];
-                    } catch(e) {
-                        console.error("加载本地服务器数据失败:", e);
-                        state.artists = [];
-                        state.categories = ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
-                        state.presets = [];
-                    }
-                } else {
-                    const savedCats = localStorage.getItem(CATEGORY_KEY);
-                    state.categories = savedCats ? JSON.parse(savedCats) : ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
-                    const savedPresets = localStorage.getItem(PRESET_KEY);
-                    state.presets = savedPresets ? JSON.parse(savedPresets) : [];
-                    const savedMeta = localStorage.getItem(METADATA_KEY);
-                    if(savedMeta) {
-                        try {
-                            const parsed = JSON.parse(savedMeta);
-                            state.artists = parsed.map(a => ({
-                                ...a, id: String(a.id), name: a.name||a.tag||'Unknown', tag: a.tag||a.name||'',
-                                categories: Array.isArray(a.categories) ? a.categories : [a.category || '未分类'],
-                                socialLinks: Array.isArray(a.socialLinks) ? a.socialLinks : []
-                            }));
-                        } catch(e) { state.artists = []; }
-                    }
+                    } catch(e) { state.artists = []; }
                 }
-                
                 renderAppStructure();
+                initResponsivePagination();
                 updateTheme();
                 renderAll();
             },
             
-            saveMeta: () => {
-                if (state.isServer) {
-                    fetch('/api/save-meta', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            artists: state.artists,
-                            categories: state.categories,
-                            presets: state.presets
-                        })
-                    }).catch(e => console.error("保存数据到服务器失败:", e));
-                } else {
-                    localStorage.setItem(METADATA_KEY, JSON.stringify(state.artists.map(({imageUrl, ...r})=>r)));
-                }
-            },
-            saveCats: () => {
-                if (state.isServer) {
-                    actions.saveMeta();
-                } else {
-                    localStorage.setItem(CATEGORY_KEY, JSON.stringify(state.categories));
-                }
-            },
-            savePresets: () => {
-                if (state.isServer) {
-                    actions.saveMeta();
-                } else {
-                    localStorage.setItem(PRESET_KEY, JSON.stringify(state.presets));
-                }
-            },
+            saveMeta: () => localStorage.setItem(METADATA_KEY, JSON.stringify(state.artists.map(({imageUrl, ...r})=>r))),
+            saveCats: () => localStorage.setItem(CATEGORY_KEY, JSON.stringify(state.categories)),
+            savePresets: () => localStorage.setItem(PRESET_KEY, JSON.stringify(state.presets)),
             setTheme: (t) => { state.theme = t; localStorage.setItem(THEME_KEY, t); updateTheme(); },
 
             setViewMode: (mode) => {
@@ -314,6 +858,26 @@
                 renderSidebarLeft();
                 renderGrid();
                 renderMainHeader();
+            },
+
+            selectCategory: (category) => {
+                if (state.currentCategory === category) return;
+
+                state.currentCategory = category;
+                state.page = 1;
+                renderGrid();
+                renderMainHeader();
+
+                const list = document.querySelector('.category-list');
+                if (!list) return;
+
+                list.querySelectorAll('.category-item').forEach((item) => {
+                    const itemCategory = decodeURIComponent(item.dataset.category || '');
+                    const isActive = itemCategory === category;
+                    item.classList.toggle('is-active', isActive);
+                    item.querySelector(':scope > button:first-child')?.setAttribute('aria-current', isActive ? 'true' : 'false');
+                });
+                syncCategoryDockPill(true);
             },
 
             handleSearch: (val) => { state.searchQuery = val; state.page = 1; renderGrid(); },
@@ -444,17 +1008,7 @@
                 id = String(id);
                 if(!confirm("确定要删除这位画师吗？")) return;
                 
-                if (state.isServer) {
-                    try {
-                        await fetch('/api/delete-image', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id })
-                        });
-                    } catch(e) { console.warn('Server delete image error:', e); }
-                } else {
-                    try { await db.delete(id); } catch(e) { console.warn('DB delete error:', e); }
-                }
+                try { await db.delete(id); } catch(e) { console.warn('DB delete error:', e); }
                 state.artists = state.artists.filter(a => String(a.id) !== id);
                 
                 // 清理所有选中状态
@@ -483,29 +1037,8 @@
                 if(!name) return showToast("请输入预设名称");
                 const ids = Object.keys(state.selected);
                 const id = String(Date.now());
-                
-                let targetImgUrl = '';
-                if(imageUrl && imageUrl.startsWith('data:')) {
-                    if (state.isServer) {
-                        try {
-                            const res = await fetch('/api/save-image', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id, image: imageUrl })
-                            });
-                            const rjson = await res.json();
-                            if (rjson.success) {
-                                state.pageImages[id] = rjson.url;
-                                targetImgUrl = rjson.url;
-                            }
-                        } catch(e) { console.error("保存预设图片到服务器失败:", e); }
-                    } else {
-                        await db.put(id, imageUrl);
-                        state.pageImages[id] = imageUrl;
-                    }
-                }
-                
-                const preset = { id, name, imageUrl: targetImgUrl, items: ids.map(mid => ({ id: mid, weight: state.selected[mid] })), createdAt: Date.now() };
+                if(imageUrl && imageUrl.startsWith('data:')) { await db.put(id, imageUrl); state.pageImages[id] = imageUrl; }
+                const preset = { id, name, items: ids.map(mid => ({ id: mid, weight: state.selected[mid] })), createdAt: Date.now() };
                 state.presets.unshift(preset);
                 actions.savePresets();
                 state.modal = null; renderModal();
@@ -517,14 +1050,7 @@
                 const p = state.presets.find(x => x.id === id);
                 if(!p) return;
                 let img = state.pageImages[id];
-                if(!img) {
-                    if (state.isServer && p.imageUrl) {
-                        img = p.imageUrl;
-                    } else {
-                        img = await db.get(id);
-                    }
-                    if (img) state.pageImages[id] = img;
-                }
+                if(!img) img = await db.get(id);
                 state.modal = 'edit-preset'; state.editingId = id;
                 state.formData = { name: p.name, imageUrl: img || '', items: p.items || [] };
                 renderModal();
@@ -533,30 +1059,8 @@
                 const { name, imageUrl } = state.formData;
                 if(!name) return showToast("名称不能为空");
                 const id = state.editingId;
-                const pObj = state.presets.find(x => x.id === id);
-                
-                let targetImgUrl = pObj ? (pObj.imageUrl || '') : '';
-                if(imageUrl && imageUrl.startsWith('data:')) {
-                    if (state.isServer) {
-                        try {
-                            const res = await fetch('/api/save-image', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id, image: imageUrl })
-                            });
-                            const rjson = await res.json();
-                            if (rjson.success) {
-                                state.pageImages[id] = rjson.url;
-                                targetImgUrl = rjson.url;
-                            }
-                        } catch(e) { console.error("更新预设图片到服务器失败:", e); }
-                    } else {
-                        await db.put(id, imageUrl);
-                        state.pageImages[id] = imageUrl;
-                    }
-                }
-                
-                state.presets = state.presets.map(p => { if(p.id === id) { return { ...p, name, imageUrl: targetImgUrl, items: state.formData.items }; } return p; });
+                if(imageUrl && imageUrl.startsWith('data:')) { await db.put(id, imageUrl); state.pageImages[id] = imageUrl; }
+                state.presets = state.presets.map(p => { if(p.id === id) { return { ...p, name, items: state.formData.items }; } return p; });
                 actions.savePresets();
                 state.modal = null; renderModal();
                 if(state.viewMode === 'presets') renderGrid();
@@ -564,20 +1068,8 @@
             },
             deletePreset: async (id) => {
                 if(!confirm("删除此预设？")) return;
-                
-                if (state.isServer) {
-                    try {
-                        await fetch('/api/delete-image', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id: String(id) })
-                        });
-                    } catch(e) { console.warn('Server delete image error:', e); }
-                } else {
-                    try { await db.delete(String(id)); } catch(e) { console.warn('DB delete error:', e); }
-                }
-                
                 state.presets = state.presets.filter(p => p.id !== String(id));
+                await db.delete(String(id));
                 actions.savePresets();
                 renderGrid(); state.modal = null; renderModal();
             },
@@ -617,23 +1109,8 @@
                             if(existing) {
                                 // 存在则更新合并属性
                                 if(img && img.startsWith('data:')) {
-                                    if (state.isServer) {
-                                        try {
-                                            const res = await fetch('/api/save-image', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ id: existing.id, image: img })
-                                            });
-                                            const rjson = await res.json();
-                                            if (rjson.success) {
-                                                state.pageImages[existing.id] = rjson.url;
-                                                existing.imageUrl = rjson.url;
-                                            }
-                                        } catch(e) { console.error("导入更新图片失败:", e); }
-                                    } else {
-                                        await db.put(existing.id, img);
-                                        state.pageImages[existing.id] = img;
-                                    }
+                                    await db.put(existing.id, img);
+                                    state.pageImages[existing.id] = img;
                                 }
                                 if(item.danbooruCount !== undefined) existing.danbooruCount = parseInt(item.danbooruCount) || 0;
                                 if(Array.isArray(item.socialLinks)) existing.socialLinks = item.socialLinks;
@@ -642,26 +1119,7 @@
                             } else {
                                 // 不存在则新增
                                 let id = String(Date.now() + Math.random());
-                                let targetImgUrl = '';
-                                if(img && img.startsWith('data:')) {
-                                    if (state.isServer) {
-                                        try {
-                                            const res = await fetch('/api/save-image', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ id, image: img })
-                                            });
-                                            const rjson = await res.json();
-                                            if (rjson.success) {
-                                                state.pageImages[id] = rjson.url;
-                                                targetImgUrl = rjson.url;
-                                            }
-                                        } catch(e) { console.error("导入新增图片失败:", e); }
-                                    } else {
-                                        await db.put(id, img);
-                                        state.pageImages[id] = img;
-                                    }
-                                }
+                                if(img && img.startsWith('data:')) await db.put(id, img);
                                 const artist = {
                                     id, name: name||'Unknown', tag,
                                     categories: cats,
@@ -669,7 +1127,6 @@
                                     socialLinks: Array.isArray(item.socialLinks) ? item.socialLinks : [],
                                     createdAt: item.createdAt||Date.now()
                                 };
-                                if (targetImgUrl) artist.imageUrl = targetImgUrl;
                                 state.artists.push(artist); 
                                 addedCount++;
                             }
@@ -699,28 +1156,8 @@
             exportData: async () => {
                 showToast("打包中...");
                 const data = [];
-                const getBase64FromUrl = async (url) => {
-                    try {
-                        const res = await fetch(url);
-                        const blob = await res.blob();
-                        return new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => resolve(reader.result);
-                            reader.readAsDataURL(blob);
-                        });
-                    } catch(e) {
-                        return '';
-                    }
-                };
                 for(const a of state.artists) {
-                    let img = '';
-                    if (state.isServer) {
-                        if (a.imageUrl && a.imageUrl.startsWith('/api/images/')) {
-                            img = await getBase64FromUrl(a.imageUrl);
-                        }
-                    } else {
-                        img = await db.get(a.id);
-                    }
+                    const img = await db.get(a.id);
                     data.push({...a, imageUrl: img||''});
                 }
                 const exportObj = { version: 12, artists: data, presets: state.presets };
@@ -745,14 +1182,7 @@
                 let img = '';
                 if(a) {
                     img = state.pageImages[id];
-                    if(!img) {
-                        if (state.isServer && a.imageUrl) {
-                            img = a.imageUrl;
-                        } else {
-                            img = await db.get(id);
-                        }
-                        if (img) state.pageImages[id] = img;
-                    }
+                    if(!img) img = await db.get(id);
                 }
                 state.modal = 'add';
                 state.editingId = id && id !== 'null' ? id : null;
@@ -772,25 +1202,9 @@
                 if(!tag) return showToast("Tag 必填");
                 const id = state.editingId ? String(state.editingId) : String(Date.now());
                 
-                let targetImgUrl = state.editingId ? (state.artists.find(a=>String(a.id)===id)?.imageUrl || '') : '';
                 if(imageUrl && imageUrl.startsWith('data:')) {
-                    if (state.isServer) {
-                        try {
-                            const res = await fetch('/api/save-image', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id, image: imageUrl })
-                            });
-                            const rjson = await res.json();
-                            if (rjson.success) {
-                                state.pageImages[id] = rjson.url;
-                                targetImgUrl = rjson.url;
-                            }
-                        } catch(e) { console.error("保存图片到服务器失败:", e); }
-                    } else {
-                        await db.put(id, imageUrl);
-                        state.pageImages[id] = imageUrl;
-                    }
+                    await db.put(id, imageUrl);
+                    state.pageImages[id] = imageUrl;
                 }
                 
                 let finalCats = categories && categories.length > 0 ? categories : ['未分类'];
@@ -800,7 +1214,6 @@
                     socialLinks: Array.isArray(socialLinks) ? socialLinks.filter(u => u.trim()) : [],
                     createdAt: state.editingId ? (state.artists.find(a=>String(a.id)===id)?.createdAt||Date.now()) : Date.now()
                 };
-                if (targetImgUrl) newMeta.imageUrl = targetImgUrl;
                 
                 if(state.editingId) {
                     state.artists = state.artists.map(a => String(a.id)===id ? newMeta : a);
@@ -1241,32 +1654,83 @@
                     if(cancelBtn) cancelBtn.style.display = 'none';
                     if(closeBtn) closeBtn.style.display = 'block';
                     const f = document.getElementById('db-progress-fill');
-                    if(f && s.done >= s.total) f.style.background = 'linear-gradient(90deg, #22c55e, #16a34a)';
+                    if(f && s.done >= s.total) f.style.background = '#1aae39';
                 }
             });
         };
 
+        const closeToolPanels = () => {
+            document.getElementById('sidebar-left-container')?.classList.remove('is-open');
+            document.getElementById('sidebar-right-container')?.classList.remove('is-open');
+            document.getElementById('panel-scrim')?.classList.remove('is-open');
+        };
+
+        const toggleToolPanel = (side) => {
+            const target = document.getElementById(side === 'filters' ? 'sidebar-left-container' : 'sidebar-right-container');
+            const wasOpen = target?.classList.contains('is-open');
+            closeToolPanels();
+            if (!target || wasOpen) return;
+            target.classList.add('is-open');
+            document.getElementById('panel-scrim')?.classList.add('is-open');
+            requestAnimationFrame(() => target.querySelector('button, input, textarea, [role="button"]')?.focus());
+        };
+
+        const syncSpotlightPointer = (event) => {
+            if (!(event.target instanceof Element)) return;
+            const card = event.target.closest('.spotlight-card');
+            if (!card) return;
+
+            const bounds = card.getBoundingClientRect();
+            const x = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left));
+            const y = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top));
+            const hue = 202 + (event.clientX / Math.max(window.innerWidth, 1)) * 18;
+
+            card.style.setProperty('--spot-x', `${x.toFixed(2)}px`);
+            card.style.setProperty('--spot-y', `${y.toFixed(2)}px`);
+            card.style.setProperty('--spot-hue', hue.toFixed(2));
+        };
+        document.addEventListener('pointermove', syncSpotlightPointer, { passive: true });
+
         const renderAppStructure = () => {
             const app = document.getElementById('app');
             app.innerHTML = `
-                <div class="md:hidden h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-                    <span class="font-bold dark:text-white">Artist Manager</span>
-                    <button id="mobile-theme-btn"><i data-lucide="moon" class="w-5 h-5 dark:text-white"></i></button>
+                <div class="md:hidden h-12 bg-white dark:bg-[#202020] flex items-center justify-between px-3 border-b border-[#e6e6e6] dark:border-[#373737] flex-shrink-0">
+                    <span class="text-sm font-semibold">画师管理</span>
+                    <button id="mobile-theme-btn" class="theme-control" aria-label="切换显示主题"><i data-lucide="moon" class="w-4 h-4"></i></button>
                 </div>
                 <div class="layout-container">
-                    <aside class="sidebar-left glass-panel shadow-xl flex flex-col" id="sidebar-left-container"></aside>
+                    <aside class="sidebar-left glass-panel flex flex-col" id="sidebar-left-container" aria-label="视图和分类"></aside>
                     <main class="main-area glass-panel shadow-lg flex flex-col">
                         <div id="main-header" class="h-16 flex items-center justify-between px-6 border-b border-slate-200/50 dark:border-slate-700/50 bg-white/40 dark:bg-slate-900/40 backdrop-blur-md z-10 flex-shrink-0"></div>
                         <div id="grid-container" class="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/20"></div>
                         <div id="pagination-container" class="h-12 border-t border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/60 text-sm flex-shrink-0"></div>
                     </main>
-                    <aside class="sidebar-right glass-panel shadow-xl flex flex-col" id="sidebar-right-container"></aside>
+                    <aside class="sidebar-right glass-panel flex flex-col" id="sidebar-right-container" aria-label="Prompt 编排"></aside>
+                    <button id="panel-scrim" class="panel-scrim" onclick="closeToolPanels()" aria-label="关闭侧边面板"></button>
                 </div>`;
             document.getElementById('mobile-theme-btn').onclick = () => actions.setTheme(state.theme==='dark'?'light':'dark');
             lucide.createIcons();
         };
 
         const updateTheme = () => { const isDark = state.theme === 'dark'; document.documentElement.className = isDark ? 'dark' : ''; };
+
+        const syncCategoryDockPill = (animate = true) => {
+            const list = document.querySelector('.category-list');
+            const pill = list?.querySelector('.category-dock-pill');
+            const activeItem = list?.querySelector('.category-item.is-active');
+            if (!list || !pill || !activeItem) return;
+
+            if (!animate) pill.style.transition = 'none';
+            pill.style.opacity = '1';
+            pill.style.height = `${activeItem.offsetHeight}px`;
+            pill.style.setProperty('--dock-y', `${activeItem.offsetTop}px`);
+
+            if (!animate) {
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    pill.style.transition = '';
+                }));
+            }
+        };
 
         const renderSidebarLeft = () => {
             const container = document.getElementById('sidebar-left-container');
@@ -1279,46 +1743,45 @@
             container.innerHTML = `
                 <div class="p-4 border-b border-slate-200/50 dark:border-slate-700/50 space-y-3">
                     <div class="flex items-center justify-between mb-2">
-                        <div class="flex flex-col">
-                            <span class="font-bold text-lg dark:text-white">Artist Manager</span>
-                            ${state.isServer ? '<span class="text-[9px] bg-green-100 dark:bg-green-950/30 text-green-600 dark:text-green-400 font-bold px-1.5 py-0.5 rounded-full w-max mt-0.5 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>本地硬盘模式</span>' : ''}
-                        </div>
-                        <button onclick="actions.setTheme(state.theme==='dark'?'light':'dark')" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400"><i data-lucide="${isDark?'sun':'moon'}" class="w-5 h-5"></i></button>
+                        <span class="app-identity">画师管理</span>
+                        <div class="flex items-center gap-1"><button onclick="actions.setTheme(state.theme==='dark'?'light':'dark')" class="theme-control" aria-label="切换显示主题"><i data-lucide="${isDark?'sun':'moon'}" class="w-4 h-4"></i></button><button onclick="closeToolPanels()" class="panel-close" aria-label="关闭筛选面板"><i data-lucide="x" class="w-4 h-4"></i></button></div>
                     </div>
-                    <div class="flex bg-slate-200 dark:bg-slate-800 rounded-lg p-1">
-                        <button onclick="actions.setViewMode('artists')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${!isPresetMode ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-white' : 'text-slate-500'}">画师列表</button>
-                        <button onclick="actions.setViewMode('presets')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${isPresetMode ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-white' : 'text-slate-500'}">风格预设</button>
+                    <div class="view-switch">
+                        <button onclick="actions.setViewMode('artists')" class="flex-1 py-1.5 text-xs transition-all ${!isPresetMode ? 'is-active' : ''}">画师</button>
+                        <button onclick="actions.setViewMode('presets')" class="flex-1 py-1.5 text-xs transition-all ${isPresetMode ? 'is-active' : ''}">预设</button>
                     </div>
                     ${!isPresetMode ? `
-                        <button onclick="actions.toggleSort()" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-between text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700 hover:text-indigo-600 transition-colors">
+                        <button onclick="actions.toggleSort()" class="sidebar-tool w-full py-2 px-3 flex items-center justify-between text-sm font-medium transition-colors">
                             <div class="flex items-center gap-2"><i data-lucide="${state.sortMode==='default'?'clock':state.sortMode==='alpha'?'arrow-up-az':'flame'}" class="w-4 h-4"></i><span>${state.sortMode==='default'?'默认':state.sortMode==='alpha'?'名称':'热度'}</span></div>
                             <i data-lucide="refresh-ccw" class="w-3 h-3 opacity-50"></i>
                         </button>
                         <div class="flex gap-2">
-                            <button onclick="document.getElementById('file-in').click()" class="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-400">导入</button>
-                            <button onclick="actions.exportData()" class="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 dark:text-slate-400">导出</button>
+                            <button onclick="document.getElementById('file-in').click()" class="sidebar-secondary flex-1 py-2 text-xs font-medium">导入</button>
+                            <button onclick="actions.exportData()" class="sidebar-secondary flex-1 py-2 text-xs font-medium">导出</button>
                             <input type="file" id="file-in" class="hidden" accept=".json" onchange="actions.importData(this.files[0]);this.value=''">
                         </div>
-                        <button onclick="actions.openDanbooruUpdate()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-bold hover:from-orange-600 hover:to-amber-600 transition-all flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/20 active:scale-[0.97]"><i data-lucide="zap" class="w-3.5 h-3.5"></i> 更新数据</button>
+                        <button onclick="actions.openDanbooruUpdate()" class="sidebar-primary w-full py-2 text-xs font-medium transition-all flex items-center justify-center gap-1.5 active:scale-[0.97]"><i data-lucide="arrow-clockwise" class="w-3.5 h-3.5"></i> 更新数据</button>
                     ` : ''}
                 </div>
                 ${!isPresetMode ? `
                 <div class="flex-1 overflow-y-auto p-3 custom-scrollbar" id="cat-list-scroll">
-                    <div class="text-xs font-bold text-slate-400 px-3 mb-2 uppercase tracking-wider">分类列表</div>
-                    <ul class="space-y-1">
-                        <li><button onclick="state.currentCategory='全部';state.page=1;renderGrid();renderSidebarLeft()" class="w-full text-left px-3 py-2 rounded-xl text-sm font-bold transition-all ${state.currentCategory==='全部'?'bg-indigo-600 text-white shadow-md':'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">全部 <span class="float-right opacity-50 text-xs font-normal mt-0.5">${state.artists.length}</span></button></li>
-                        <li><button onclick="state.currentCategory='未分类';state.page=1;renderGrid();renderSidebarLeft()" class="w-full text-left px-3 py-2 rounded-xl text-sm font-bold transition-all ${state.currentCategory==='未分类'?'bg-indigo-600 text-white shadow-md':'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}">未分类</button></li>
+                    <div class="sidebar-label">分类</div>
+                    <ul class="category-list">
+                        <li aria-hidden="true" class="category-dock-pill"></li>
+                        <li data-category="${encodeURIComponent('全部')}" class="category-item ${state.currentCategory==='全部'?'is-active':''}"><button onclick="actions.selectCategory(decodeURIComponent(this.closest('.category-item').dataset.category))" aria-current="${state.currentCategory==='全部'?'true':'false'}" class="w-full text-left transition-all">全部 <span class="count float-right">${state.artists.length}</span></button></li>
+                        <li data-category="${encodeURIComponent('未分类')}" class="category-item ${state.currentCategory==='未分类'?'is-active':''}"><button onclick="actions.selectCategory(decodeURIComponent(this.closest('.category-item').dataset.category))" aria-current="${state.currentCategory==='未分类'?'true':'false'}" class="w-full text-left transition-all">未分类</button></li>
                         ${state.categories.map(cat => {
                             const isActive = state.currentCategory === cat;
-                            return `<li class="group flex items-center p-1 rounded-xl transition-all ${isActive ? 'bg-indigo-600 shadow-md' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}">
-                                <button onclick="state.currentCategory='${cat}';state.page=1;renderGrid();renderSidebarLeft()" class="flex-1 text-left px-2 py-1.5 text-sm font-bold bg-transparent truncate ${isActive ? 'text-white' : 'text-slate-600 dark:text-slate-400'}">${cat}</button>
-                                <div class="flex gap-1 pr-1 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity">
-                                    <button onclick="event.stopPropagation();actions.deleteCategory('${cat}')" class="p-1.5 rounded-md transition-colors ${isActive ? 'text-indigo-200 hover:text-red-100 hover:bg-red-500' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                            const categoryKey = encodeURIComponent(cat);
+                            return `<li data-category="${categoryKey}" class="category-item group flex items-center transition-all ${isActive ? 'is-active' : ''}">
+                                <button onclick="actions.selectCategory(decodeURIComponent(this.closest('.category-item').dataset.category))" aria-current="${isActive?'true':'false'}" class="flex-1 text-left bg-transparent truncate">${cat}</button>
+                                <div class="category-actions flex gap-1 pr-1">
+                                    <button onclick="event.stopPropagation();actions.deleteCategory(decodeURIComponent(this.closest('.category-item').dataset.category))" class="p-1.5 rounded-md text-slate-400 hover:text-red-600" aria-label="删除分类 ${cat}"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
                                 </div>
                             </li>`}).join('')}
                     </ul>
                 </div>
-                <div class="p-4 border-t border-slate-200/50 dark:border-slate-700/50"><button onclick="actions.addCategory()" class="w-full py-2.5 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 text-sm font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors">+ 新建分类</button></div>
+                <div class="p-3 border-t border-slate-200/50 dark:border-slate-700/50"><button onclick="actions.addCategory()" class="new-category w-full py-2 text-sm transition-colors">+ 新建分类</button></div>
                 ` : `<div class="flex-1 p-6 flex flex-col items-center justify-center text-slate-400 text-center text-sm"><i data-lucide="layout-grid" class="w-12 h-12 mb-4 opacity-30"></i></div>`}
             `;
             // Restore scroll position of the category list after re-render
@@ -1327,6 +1790,7 @@
                 newCatListEl.offsetHeight; // Force synchronous layout so scrollTop does not clamp to 0
                 newCatListEl.scrollTop = savedScrollTop;
             }
+            syncCategoryDockPill(false);
             lucide.createIcons(container);
         };
 
@@ -1353,27 +1817,92 @@
                     </div>`;
             } else if (state.viewMode === 'presets') {
                 container.innerHTML = `
-                    <div class="font-bold text-lg text-slate-700 dark:text-white flex items-center gap-2"><i data-lucide="package" class="w-5 h-5"></i> 风格预设库</div>
-                    <div class="text-sm text-slate-500">点击卡片应用组合</div>`;
+                    <div class="tool-header"><div class="text-sm font-semibold">风格预设</div><div class="tool-status">${state.presets.length} 个预设</div><div class="tool-actions"><button onclick="toggleToolPanel('filters')" class="utility-button panel-toggle filter-toggle" aria-label="打开视图面板"><i data-lucide="sidebar" class="w-4 h-4"></i></button><button onclick="toggleToolPanel('composer')" class="utility-button panel-toggle composer-toggle" aria-label="打开 Prompt 编排"><i data-lucide="sliders-horizontal" class="w-4 h-4"></i></button></div></div>`;
             } else {
                 container.innerHTML = `
-                    <div class="relative group">
-                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500"></i>
-                        <input type="text" value="${state.searchQuery}" oninput="actions.handleSearch(this.value)" placeholder="搜索画师..." class="pl-10 pr-4 py-2 rounded-full bg-slate-100 dark:bg-slate-800 text-sm w-64 focus:w-80 transition-all outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white">
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button onclick="actions.toggleBatchMode()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-colors flex items-center gap-1"><i data-lucide="layers" class="w-4 h-4"></i> 批量</button>
-                        <button onclick="actions.openEdit(null)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg shadow-indigo-500/30 flex items-center gap-2 active:scale-95 transition-transform"><i data-lucide="plus" class="w-4 h-4"></i> 添加</button>
+                    <div class="tool-header">
+                        <label class="tool-search"><span class="sr-only">搜索画师</span><i data-lucide="search" class="w-4 h-4"></i><input type="search" value="${state.searchQuery}" oninput="actions.handleSearch(this.value)" placeholder="搜索名称或 Danbooru tag"></label>
+                        <div class="tool-status">${state.artists.length} 位画师 · ${state.currentCategory}</div>
+                        <div class="tool-actions">
+                            <button onclick="toggleToolPanel('filters')" class="utility-button panel-toggle filter-toggle" aria-label="打开筛选面板"><i data-lucide="funnel" class="w-4 h-4"></i></button>
+                            <button onclick="toggleToolPanel('composer')" class="utility-button panel-toggle composer-toggle" aria-label="打开 Prompt 编排"><i data-lucide="sliders-horizontal" class="w-4 h-4"></i></button>
+                            <button onclick="actions.toggleBatchMode()" class="utility-button"><i data-lucide="layers" class="w-4 h-4"></i><span>批量</span></button>
+                            <button onclick="actions.openEdit(null)" class="primary-button"><i data-lucide="plus" class="w-4 h-4"></i><span>添加</span></button>
+                        </div>
                     </div>`;
             }
             lucide.createIcons(container);
         };
         const renderBatchBar = () => renderMainHeader();
 
+        let responsiveGridObserver = null;
+        let responsiveGridFrame = 0;
+
+        const calculateResponsivePageSize = (container) => {
+            if (!container) return state.pageSize || 24;
+
+            const containerStyle = getComputedStyle(container);
+            const rootSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+            const horizontalPadding = (Number.parseFloat(containerStyle.paddingLeft) || 0) + (Number.parseFloat(containerStyle.paddingRight) || 0);
+            const verticalPadding = (Number.parseFloat(containerStyle.paddingTop) || 0) + (Number.parseFloat(containerStyle.paddingBottom) || 0);
+            const availableWidth = Math.max(1, container.clientWidth - horizontalPadding);
+            const availableHeight = Math.max(1, container.clientHeight - verticalPadding - rootSize * .5);
+            const gap = rootSize * .75;
+            const minCardWidth = rootSize * 9.75;
+
+            let columns;
+            if (window.matchMedia('(max-width: 480px)').matches) columns = 1;
+            else if (window.matchMedia('(max-width: 768px)').matches) columns = 2;
+            else columns = Math.max(1, Math.floor((availableWidth + gap) / (minCardWidth + gap)));
+
+            const cardWidth = Math.max(1, (availableWidth - gap * (columns - 1)) / columns);
+            const imageHeight = state.viewMode === 'presets' ? cardWidth * 9 / 16 : cardWidth * 4 / 3;
+            const infoHeight = state.viewMode === 'presets' ? 76 : 64;
+            const cardHeight = imageHeight + infoHeight + 2;
+            const rows = Math.max(1, Math.ceil((availableHeight + gap) / (cardHeight + gap)));
+
+            return Math.max(1, columns * rows);
+        };
+
+        const syncResponsivePageSize = () => {
+            const container = document.getElementById('grid-container');
+            if (!container) return false;
+
+            const nextPageSize = calculateResponsivePageSize(container);
+            if (nextPageSize === state.pageSize) return false;
+
+            const firstVisibleIndex = Math.max(0, (state.page - 1) * state.pageSize);
+            state.pageSize = nextPageSize;
+            state.page = Math.floor(firstVisibleIndex / nextPageSize) + 1;
+            return true;
+        };
+
+        const scheduleResponsiveGrid = () => {
+            cancelAnimationFrame(responsiveGridFrame);
+            responsiveGridFrame = requestAnimationFrame(() => {
+                responsiveGridFrame = 0;
+                if (syncResponsivePageSize()) renderGrid();
+            });
+        };
+
+        const initResponsivePagination = () => {
+            responsiveGridObserver?.disconnect();
+            const container = document.getElementById('grid-container');
+            if (!container) return;
+
+            responsiveGridObserver = new ResizeObserver(scheduleResponsiveGrid);
+            responsiveGridObserver.observe(container);
+            window.addEventListener('resize', scheduleResponsiveGrid, { passive: true });
+            window.visualViewport?.addEventListener('resize', scheduleResponsiveGrid, { passive: true });
+        };
+
         const renderGrid = () => {
             const container = document.getElementById('grid-container');
             const footer = document.getElementById('pagination-container');
             if(!container || !footer) return;
+
+            syncResponsivePageSize();
+            container.dataset.pageSize = String(state.pageSize);
 
             const list = getFilteredList();
             const totalPage = Math.ceil(list.length / state.pageSize) || 1;
@@ -1398,12 +1927,12 @@
 
             if (state.viewMode === 'presets') {
                 if(pageItems.length === 0) {
-                    container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-400"><i data-lucide="package-open" class="w-16 h-16 mb-4 opacity-30"></i><p>暂无预设，请在右侧保存</p></div>`;
+                    container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-400"><i data-lucide="package-open" class="empty-state-icon opacity-30"></i><p>暂无预设，请在右侧保存</p></div>`;
                 } else {
                     container.innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">${pageItems.map(p => {
                         const id = String(p.id);
                         return `
-                        <div onclick="actions.toggleCardClick('${id}')" class="group glass-card rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all relative">
+                        <div onclick="actions.toggleCardClick('${id}')" class="group glass-card spotlight-card rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all relative">
                             <div class="aspect-[16/9] bg-slate-200 dark:bg-slate-800 relative">
                                 <img id="img-${id}" class="w-full h-full object-cover transition-opacity duration-500 opacity-0">
                                 <div class="absolute inset-0 flex items-center justify-center text-slate-300 -z-10"><i data-lucide="image" class="w-8 h-8"></i></div>
@@ -1425,7 +1954,7 @@
                 footer.innerHTML = `<span class="text-slate-500">Total: ${list.length} Presets</span>`;
             } else {
                 if(pageItems.length === 0) {
-                    container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-400"><i data-lucide="ghost" class="w-16 h-16 mb-4 opacity-30"></i><p>没有数据</p></div>`;
+                    container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-400"><i data-lucide="ghost" class="empty-state-icon opacity-30"></i><p>没有数据</p></div>`;
                 } else {
                     container.innerHTML = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 pb-4">${pageItems.map(a => {
                         const id = String(a.id);
@@ -1433,7 +1962,7 @@
                         const isBatchSel = !!state.batchSelected[id];
                         const activeClass = state.batchMode ? (isBatchSel ? 'batch-selected' : '') : (isSel ? 'card-selected' : '');
                         return `
-                        <div id="card-${id}" onclick="actions.toggleCardClick('${id}')" class="group glass-card rounded-2xl overflow-hidden cursor-pointer relative hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ${activeClass}">
+                        <div id="card-${id}" onclick="actions.toggleCardClick('${id}')" class="group glass-card spotlight-card rounded-2xl overflow-hidden cursor-pointer relative hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ${activeClass}">
                             <div class="aspect-[3/4] bg-slate-200 dark:bg-slate-800 relative">
                                 <img id="img-${id}" class="w-full h-full object-cover transition-opacity duration-500 opacity-0" loading="lazy">
                                 <div class="absolute inset-0 flex items-center justify-center text-slate-300 -z-10"><i data-lucide="image" class="w-8 h-8"></i></div>
@@ -1450,7 +1979,7 @@
                                 <h3 class="font-bold text-slate-800 dark:text-slate-100 truncate text-sm">${a.name}</h3>
                                 <div class="flex gap-1 mt-1 overflow-hidden items-center">
                                     <span class="text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-700/50 px-1.5 rounded truncate font-mono">${a.tag}</span>
-                                    ${(a.socialLinks && a.socialLinks.length > 0) ? `<div class="flex gap-1 ml-auto overflow-x-auto scrollbar-hide flex-nowrap items-center" style="max-width: 60%; mask-image: linear-gradient(to right, black 80%, transparent 100%); -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%); padding-right: 12px;">${a.socialLinks.map(u => `<a href="${u}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="social-link-icon flex-shrink-0" title="${u}">${getSocialIcon(u)}</a>`).join('')}</div>` : ''}
+                                    ${(a.socialLinks && a.socialLinks.length > 0) ? `<div class="flex gap-1 ml-auto overflow-x-auto scrollbar-hide flex-nowrap items-center" style="max-width: 60%; padding-right: 12px;">${a.socialLinks.map(u => `<a href="${u}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="social-link-icon flex-shrink-0" title="${u}">${getSocialIcon(u)}</a>`).join('')}</div>` : ''}
                                 </div>
                             </div>
                         </div>`;
@@ -1484,15 +2013,9 @@
             items.forEach(a => {
                 const el = document.getElementById(`img-${a.id}`);
                 const cache = state.pageImages[a.id];
-                if (el) {
-                    if (cache) {
-                        el.src = cache; el.classList.remove('opacity-0');
-                    } else if (state.isServer && a.imageUrl) {
-                        el.src = a.imageUrl; el.classList.remove('opacity-0');
-                    }
-                }
+                if(el && cache) { el.src=cache; el.classList.remove('opacity-0'); }
             });
-            if (!state.isServer && idsNeeded.length > 0) {
+            if(idsNeeded.length>0) {
                 for(const id of idsNeeded) {
                     const img = await db.get(id);
                     if(img) {
@@ -1507,7 +2030,7 @@
         // =========================================
         // 饼状图 & 悬停预览
         // =========================================
-        const PIE_COLORS = ['#818cf8','#f472b6','#fbbf24','#34d399','#60a5fa','#a78bfa','#f87171','#2dd4bf','#fb923c','#22d3ee','#a3e635','#e879f9','#67e8f9','#fdba74','#c4b5fd'];
+        const PIE_COLORS = ['#252522','#6b655d','#a89f93','#4d5b57','#596554','#7a6548','#3c3a37','#c1b7a7'];
         let _pieSegments = [];
         let _hoveredPieIdx = -1;
 
@@ -1551,7 +2074,7 @@
                     const mid = startAngle + slice / 2;
                     const lr = (r + ir) / 2;
                     ctx.fillStyle = '#fff';
-                    ctx.font = 'bold 11px Inter,sans-serif';
+                    ctx.font = "600 11px 'Segoe UI Variable', sans-serif";
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(Math.round(pct) + '%', cx + Math.cos(mid) * lr, cy + Math.sin(mid) * lr);
@@ -1560,11 +2083,11 @@
                 startAngle = endAngle;
             });
             ctx.fillStyle = state.theme === 'dark' ? '#e2e8f0' : '#334155';
-            ctx.font = 'bold 22px Inter,sans-serif';
+            ctx.font = "700 22px 'Segoe UI Variable', sans-serif";
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(items.length, cx, cy - 8);
-            ctx.font = '11px Inter,sans-serif';
+            ctx.font = "11px 'Segoe UI Variable', sans-serif";
             ctx.fillStyle = '#94a3b8';
             ctx.fillText('位画师', cx, cy + 12);
         };
@@ -1610,7 +2133,7 @@
 
         const highlightArtistRow = (idx) => {
             document.querySelectorAll('.artist-hover-row').forEach((el, i) => {
-                if (i === idx) { el.style.borderColor = PIE_COLORS[i % PIE_COLORS.length]; el.style.background = 'rgba(99,102,241,0.08)'; }
+                if (i === idx) { el.style.borderColor = PIE_COLORS[i % PIE_COLORS.length]; el.style.background = 'var(--nt-blue-soft)'; }
                 else { el.style.borderColor = 'transparent'; el.style.background = ''; }
             });
         };
@@ -1619,15 +2142,7 @@
             const tooltip = document.getElementById('artist-preview-tooltip');
             if (!tooltip) return;
             let img = state.pageImages[id];
-            if (!img) {
-                const artist = state.artists.find(a => String(a.id) === id);
-                if (state.isServer && artist && artist.imageUrl) {
-                    img = artist.imageUrl;
-                } else {
-                    img = await db.get(id);
-                }
-                if (img) state.pageImages[id] = img;
-            }
+            if (!img) { img = await db.get(id); if (img) state.pageImages[id] = img; }
             const artist = state.artists.find(a => String(a.id) === id);
             const name = artist ? artist.name : 'Unknown';
             const selIds = Object.keys(state.selected);
@@ -1636,7 +2151,7 @@
             if (img) {
                 tooltip.innerHTML = `<img src="${img}"><div class="preview-label">${name}<span class="preview-pct">${pct}%</span></div>`;
             } else {
-                tooltip.innerHTML = `<div style="width:100%;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e0e7ff,#f3e8ff)"><span style="font-size:36px;opacity:0.3">🎨</span></div><div class="preview-label">${name}<span class="preview-pct">${pct}%</span></div>`;
+                tooltip.innerHTML = `<div style="width:100%;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;background:#f6f5f4;color:#8b8783;font:600 11px 'Segoe UI Variable',sans-serif;letter-spacing:.08em">NO PREVIEW</div><div class="preview-label">${name}<span class="preview-pct">${pct}%</span></div>`;
             }
             tooltip.classList.add('show');
             movePreviewTooltip(evt);
@@ -1751,9 +2266,9 @@
             const totalWeight = items.reduce((s, a) => s + (state.selected[String(a.id)] || 1), 0);
 
             container.innerHTML = `
-                <div class="p-5 border-b border-slate-200/50 dark:border-slate-700/50 flex justify-between items-center"><h2 class="font-bold text-lg dark:text-white flex items-center gap-2"><i data-lucide="wand-2" class="w-5 h-5 text-indigo-500"></i> 咒语生成</h2><span class="bg-indigo-100 text-indigo-600 text-sm font-bold px-3 py-1 rounded-full">${items.length}</span></div>
+                <div class="p-5 border-b border-slate-200/50 dark:border-slate-700/50 flex justify-between items-center"><h2 class="dark:text-white flex items-center gap-2"><i data-lucide="wand-2" class="w-4 h-4"></i> Prompt 编排</h2><div class="flex items-center gap-2"><span class="bg-indigo-100 text-indigo-600 text-xs font-semibold px-2 py-1 rounded-full">${items.length}</span><button onclick="closeToolPanels()" class="panel-close" aria-label="关闭 Prompt 编排"><i data-lucide="x" class="w-4 h-4"></i></button></div></div>
                 ${items.length > 0 ? `<div class="px-4 py-3 border-b border-slate-200/50 dark:border-slate-700/50 pie-canvas-wrap"><canvas id="pie-chart-cv" style="width:100%;height:180px;display:block;cursor:pointer"></canvas></div>` : ''}
-                <div class="px-5 py-3 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between"><span class="text-xs font-bold text-slate-500">输出格式</span><div class="flex bg-slate-200 dark:bg-slate-700 rounded-full p-1 w-32 relative cursor-pointer" onclick="state.promptFormat=state.promptFormat==='webui'?'novelai':'webui';renderSidebarRight()"><div class="absolute inset-y-1 w-[calc(50%-4px)] bg-white dark:bg-indigo-500 rounded-full shadow-sm capsule-bg" style="left: ${isWebui?'4px':'calc(50%)'}"></div><div class="flex-1 text-[10px] font-bold text-center z-10 py-1 ${isWebui?'text-indigo-600':'text-slate-500 dark:text-slate-400'}">(SDXL)</div><div class="flex-1 text-[10px] font-bold text-center z-10 py-1 ${!isWebui?'text-white':'text-slate-500 dark:text-slate-400'}">(NAI)</div></div></div>
+                <div class="px-5 py-3 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between"><span class="text-xs font-medium text-slate-500">输出格式</span><div class="format-switch flex bg-slate-200 dark:bg-slate-700 p-1 w-32 relative cursor-pointer" role="button" tabindex="0" aria-label="切换 Prompt 格式" onclick="state.promptFormat=state.promptFormat==='webui'?'novelai':'webui';renderSidebarRight()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div class="absolute inset-y-1 w-[calc(50%-4px)] bg-white dark:bg-indigo-500 shadow-sm capsule-bg" style="left: ${isWebui?'4px':'calc(50%)'}"></div><div class="flex-1 text-[10px] font-semibold text-center z-10 py-1 ${isWebui?'format-active':'format-inactive'}">SDXL</div><div class="flex-1 text-[10px] font-semibold text-center z-10 py-1 ${!isWebui?'format-active':'format-inactive'}">NAI</div></div></div>
                 <div class="flex-1 overflow-y-auto p-5 space-y-2 custom-scrollbar" id="right-artist-list-scroll">${items.length === 0 ? `<div class="text-center text-slate-400 py-10"><i data-lucide="clipboard-paste" class="w-10 h-10 mx-auto mb-3 opacity-30"></i><p>点击左侧卡片选择画师</p><p class="text-xs mt-1 opacity-60">或在下方文本框粘贴画师串导入</p></div>` : items.map((a, idx) => { const id = String(a.id); const w = state.selected[id]; const pct = totalWeight > 0 ? ((w/totalWeight)*100).toFixed(1) : '0'; const color = PIE_COLORS[idx % PIE_COLORS.length]; const isFirst = idx === 0; const isLast = idx === items.length - 1; const isGhost = !!a._ghost; return `<div class="flex items-center gap-1 group bg-white/50 dark:bg-slate-800/50 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all artist-hover-row artist-drag-item ${isGhost ? 'ghost-artist' : ''}" data-artist-id="${id}" data-artist-idx="${idx}" draggable="true"><div class="flex flex-col gap-0.5 flex-shrink-0 mr-1"><button onclick="event.stopPropagation();moveSelectedArtist(${idx},${idx-1})" class="artist-move-btn" ${isFirst?'disabled':''}><i data-lucide="chevron-up" class="w-3 h-3"></i></button><button onclick="event.stopPropagation();moveSelectedArtist(${idx},${idx+1})" class="artist-move-btn" ${isLast?'disabled':''}><i data-lucide="chevron-down" class="w-3 h-3"></i></button></div><div class="flex items-center flex-1 min-w-0 cursor-default" ${!isGhost ? `onmouseenter="showArtistPreview('${id}',event)" onmousemove="movePreviewTooltip(event)" onmouseleave="hideArtistPreview()"` : ''}><div class="w-3 h-3 rounded-full flex-shrink-0 mr-2" style="background:${isGhost ? '#94a3b8' : color};box-shadow:0 0 6px ${isGhost ? '#94a3b860' : color+'60'}"></div><div class="flex-1 min-w-0 pr-2"><div class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">${a.name}${isGhost ? '<span class="ghost-badge"><i data-lucide="help-circle" class="w-3 h-3"></i>未匹配</span>' : ''}</div><div class="text-xs text-slate-400 truncate font-mono mt-0.5">${a.tag} <span style="color:${isGhost ? '#94a3b8' : color};font-weight:700">${pct}%</span></div></div></div><div class="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 shadow-sm"><button onclick="state.selected['${id}']=(state.selected['${id}']-0.1)||0.1;renderSidebarRight()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-indigo-600"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button><span class="text-xs font-mono w-8 text-center font-bold dark:text-white">${w.toFixed(1)}</span><button onclick="state.selected['${id}']=(state.selected['${id}']+0.1)||0.1;renderSidebarRight()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-indigo-600"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button></div><button onclick="delete state.selected['${id}'];state.selectedOrder=state.selectedOrder.filter(x=>x!=='${id}');if('${id}'.startsWith('_ghost_')){state.artists=state.artists.filter(a=>String(a.id)!=='${id}');}hideArtistPreview();updateCardVisual('${id}');renderSidebarRight()" class="ml-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg p-1 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button></div>`}).join('')}</div>
                 <div class="p-5 border-t border-slate-200/50 dark:border-slate-700/50 space-y-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md"><textarea id="res-box" class="w-full h-24 text-sm p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none dark:text-slate-300 shadow-inner" placeholder="粘贴画师串到此处导入，或由选择自动生成...">${prompt}</textarea><div class="flex gap-2"><button onclick="const box=document.getElementById('res-box');importFromPromptText(box.value)" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/30 flex items-center justify-center gap-1 import-prompt-btn"><i data-lucide="clipboard-paste" class="w-4 h-4"></i> 导入串</button><button onclick="actions.openAddPresetModal()" class="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-green-500/30 flex items-center justify-center gap-1"><i data-lucide="save" class="w-4 h-4"></i> 存预设</button><button onclick="document.getElementById('res-box').select();document.execCommand('copy');showToast('咒语已复制')" class="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"><i data-lucide="copy" class="w-4 h-4"></i> 复制</button><button onclick="state.selected={};state.selectedOrder=[];state.artists=state.artists.filter(a=>!a._ghost);renderGrid();renderSidebarRight()" class="p-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div></div>`;
             // Restore scroll position of the artist list after re-render
@@ -1845,7 +2360,141 @@
             setTimeout(() => div.remove(), 2000);
         };
 
+        const isOriginButtonEligible = (button) => {
+            if (!(button instanceof HTMLButtonElement)) return false;
+            if (button.classList.contains('panel-scrim')) return false;
+            if (button.classList.contains('artist-move-btn')) return false;
+            if (button.classList.contains('db-mode-btn')) return false;
+            if (button.closest('.view-switch')) return false;
+            if (button.closest('.category-item')) return false;
+            return true;
+        };
+
+        const ensureOriginButtonLabel = (button) => {
+            if (button.hasAttribute('aria-label') || button.textContent.trim()) return;
+
+            const icon = button.querySelector('i');
+            let label = '';
+            if (button.matches('#res-box + div button:last-child')) label = '清空 Prompt';
+            else if (button.closest('#pagination-container') && icon?.classList.contains('ph-caret-left')) label = '上一页';
+            else if (button.closest('#pagination-container') && icon?.classList.contains('ph-caret-right')) label = '下一页';
+            else if (button.closest('.artist-drag-item') && icon?.classList.contains('ph-minus')) label = '降低权重';
+            else if (button.closest('.artist-drag-item') && icon?.classList.contains('ph-plus')) label = '提高权重';
+            else if (button.closest('.artist-drag-item') && icon?.classList.contains('ph-x')) label = '移除画师';
+            else if (button.closest('.glass-card') && icon?.classList.contains('ph-pencil-simple')) label = '编辑';
+            else if (button.closest('.glass-card') && icon?.classList.contains('ph-trash')) label = '删除';
+
+            if (!label) return;
+            button.setAttribute('aria-label', label);
+            button.title = label;
+        };
+
+        const prepareOriginButton = (button) => {
+            if (!isOriginButtonEligible(button) || button.dataset.originButton === 'ready') return button;
+
+            ensureOriginButtonLabel(button);
+            button.dataset.originButton = 'ready';
+            button.classList.add('origin-button');
+
+            const content = document.createElement('span');
+            content.className = 'origin-button__content';
+            while (button.firstChild) content.appendChild(button.firstChild);
+            button.appendChild(content);
+            return button;
+        };
+
+        const getOriginButtonFromEvent = (event) => {
+            if (!(event.target instanceof Element)) return null;
+            const button = event.target.closest('button');
+            return isOriginButtonEligible(button) ? prepareOriginButton(button) : null;
+        };
+
+        const setOriginButtonPoint = (button, clientX, clientY) => {
+            const bounds = button.getBoundingClientRect();
+            const x = clientX == null ? bounds.width / 2 : Math.max(0, Math.min(bounds.width, clientX - bounds.left));
+            const y = clientY == null ? bounds.height / 2 : Math.max(0, Math.min(bounds.height, clientY - bounds.top));
+            const radius = Math.max(
+                Math.hypot(x, y),
+                Math.hypot(bounds.width - x, y),
+                Math.hypot(x, bounds.height - y),
+                Math.hypot(bounds.width - x, bounds.height - y)
+            );
+
+            button.style.setProperty('--origin-x', `${x.toFixed(2)}px`);
+            button.style.setProperty('--origin-y', `${y.toFixed(2)}px`);
+            button.style.setProperty('--origin-size', `${Math.ceil(radius * 2)}px`);
+        };
+
+        const showOriginButtonFill = (button, clientX = null, clientY = null) => {
+            if (!button || button.disabled) return;
+            setOriginButtonPoint(button, clientX, clientY);
+            button.classList.add('is-origin-active');
+        };
+
+        const hideOriginButtonFill = (button) => {
+            if (!button) return;
+            button.classList.remove('is-origin-active');
+            button.dataset.originPressed = 'false';
+        };
+
+        const initOriginButtons = () => {
+            document.querySelectorAll('button').forEach(prepareOriginButton);
+
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+                    if (!(node instanceof Element)) return;
+                    if (node.matches('button')) prepareOriginButton(node);
+                    node.querySelectorAll('button').forEach(prepareOriginButton);
+                }));
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            document.addEventListener('pointerover', (event) => {
+                const button = getOriginButtonFromEvent(event);
+                if (!button || (event.relatedTarget instanceof Node && button.contains(event.relatedTarget))) return;
+                showOriginButtonFill(button, event.clientX, event.clientY);
+            });
+            document.addEventListener('pointerout', (event) => {
+                const button = getOriginButtonFromEvent(event);
+                if (!button || (event.relatedTarget instanceof Node && button.contains(event.relatedTarget))) return;
+                hideOriginButtonFill(button);
+            });
+            document.addEventListener('pointerdown', (event) => {
+                const button = getOriginButtonFromEvent(event);
+                if (!button || event.button !== 0) return;
+                showOriginButtonFill(button, event.clientX, event.clientY);
+                button.dataset.originPressed = 'true';
+            });
+            document.addEventListener('pointerup', (event) => {
+                const button = getOriginButtonFromEvent(event);
+                if (!button) return;
+                button.dataset.originPressed = 'false';
+                if (!button.matches(':hover, :focus-visible')) hideOriginButtonFill(button);
+            });
+            document.addEventListener('pointercancel', (event) => hideOriginButtonFill(getOriginButtonFromEvent(event)));
+            document.addEventListener('focusin', (event) => {
+                const button = getOriginButtonFromEvent(event);
+                if (button?.matches(':focus-visible')) showOriginButtonFill(button);
+            });
+            document.addEventListener('focusout', (event) => hideOriginButtonFill(getOriginButtonFromEvent(event)));
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                const button = getOriginButtonFromEvent(event);
+                if (!button || event.repeat) return;
+                showOriginButtonFill(button);
+                button.dataset.originPressed = 'true';
+            });
+            document.addEventListener('keyup', (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                const button = getOriginButtonFromEvent(event);
+                if (!button) return;
+                button.dataset.originPressed = 'false';
+                if (!button.matches(':hover, :focus-visible')) hideOriginButtonFill(button);
+            });
+        };
+
         actions.init();
+        initOriginButtons();
 
     </script>
 </body>
