@@ -1,88 +1,117 @@
 <div align="center">
 
-# 🎨 AI Artist Manager / 画师串管理工具 V3
+# AI Artist Manager v15
 
-**一款专为 AI 绘画（Stable Diffusion/NovelAI）打造的个人画师风格、Prompt 本地管理小工具。**
+**本地优先的画师资料、风格预设与 Prompt 编排工具。**
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Online%20Demo-success)](https://desperati0n.github.io/ai-artist-tool/)
+[![Release](https://img.shields.io/badge/release-v15-20201e)](https://github.com/desperati0n/ai-artist-tool/releases/tag/v15)
+[![UI](https://img.shields.io/badge/UI-Obsidian%20%26%20Bone-e8e3d9)](https://desperati0n.github.io/ai-artist-tool/index-spotlight.html)
+[![Storage](https://img.shields.io/badge/storage-local--first-596554)](#数据与隐私)
 
-无需安装，双击即用，帮助你高效整理、预览和组合画师标签 (Tags)，突破浏览器缓存限制。
-
-### [🚀 点击这里在线使用 (GitHub Pages)](https://desperati0n.github.io/ai-artist-tool/)
+[在线体验 v15](https://desperati0n.github.io/ai-artist-tool/index-spotlight.html) · [查看 Changelog](CHANGELOG.md) · [反馈问题](https://github.com/desperati0n/ai-artist-tool/issues)
 
 </div>
 
 ---
 
+## 这是什么
 
-## ✨ 核心功能 (Features)
+AI Artist Manager 用来整理画师 Tag、预览图、分类与常用风格组合，并把选中的画师快速转换成 NovelAI 或 Stable Diffusion 可用的 Prompt。
 
-| 功能 | 描述 |
+v15 提供一套独立的新界面 `index-spotlight.html`。它保留原有数据和功能，将工作流程重新组织为分类、画师浏览和 Prompt 编排三个明确区域。经典界面 `index.html` 仍然保留，方便比较或回退。
+
+## v15 更新重点
+
+| 更新 | 说明 |
 | --- | --- |
-| 🚀 **纯本地运行** | 单文件 HTML，0 服务端依赖。断网状态下依旧双击即用。 |
-| 🎨 **极致界面与动效** | 基于 Tailwind CSS 的现代化琉璃质感 UI，平滑微动画，支持**深色模式(Dark Mode)**随意切换。 |
-| 💾 **IndexedDB 大容量存储** | 抛弃了传统 LocalStorage 5MB 的存储限制，本地直接缓存海量高清画师预览图。 |
-| ⚡ **即用即组 Tag** | 点击画师卡片自动在侧边栏组合 Tag，支持自由调整权重如 `(tag:1.1)`，一键复制送往 WebUI/NovelAI。 |
-| 📦 **风格预设能力 (Presets)** | 支持将自己搭配的多个画师组合一键保存为“风格预设”，后续一键调用。 |
-| 🛠 **批量与拖拽管理** | 提供批量选中、批量打组（分类）、批量移出以及批量删除。支持画师排序拖拽。 |
-| 🔒 **数据绝对隐私** | 所有画师数据、图片素材仅存储在您的浏览器本地 IndexDB 库内，绝不上传到任何服务器。 |
-| 📂 **一键本地备份** | 支持 JSON 格式的导入与导出（包含所有 Tag、基础设定及图片），换电脑依然轻松迁移数据。 |
+| 工具型三栏布局 | 搜索、分类、画师选择与 Prompt 编排在同一工作区内完成。 |
+| 黑曜石 × 骨白 | 统一浅色、深色模式的主操作、选中态、焦点环和按钮交互。 |
+| 默认 NAI 输出 | 默认生成 NovelAI 格式，同时保留 SDXL/NAI 快速切换。 |
+| 分类 Dock 动画 | 当前分类使用平滑移动的指示层反馈，减少界面跳动。 |
+| 侵蚀按钮反馈 | 填充从指针位置扩散，并针对两种主题保持清晰文字对比。 |
+| 卡片聚光反馈 | 使用低饱和中性光泽提示当前卡片，不干扰图片内容。 |
+| 响应式工具抽屉 | 窄屏下分类与 Prompt 面板转为抽屉，390px 宽度下无横向溢出。 |
+| 可访问性修正 | 统一焦点状态，并为翻页、清空、权重和卡片操作补充可访问名称。 |
 
-## 📖 快速上手 (Quick Start)
+完整改动请查看 [CHANGELOG.md](CHANGELOG.md)。
 
-### 方案一：本地离线使用 (🌟 强烈推荐)
+## 核心功能
 
-因为本工具的数据保存在浏览器本地（IndexedDB/LocalStorage），**极度建议**大家下载到本地固定一个浏览器使用。如果完全依赖在线页面，万一浏览器清理缓存，或者在多个项目网页间穿插使用，会导致辛苦收集的画师数据丢失！
+- 画师资料管理：保存名称、Danbooru Tag、分类、封面、热度与社交链接。
+- Prompt 编排：选择多个画师、调整权重、拖拽排序并一键复制结果。
+- 双格式输出：支持 NovelAI 与 Stable Diffusion/SDXL 权重语法。
+- 风格预设：保存常用画师组合，之后可以快速恢复。
+- 批量管理：批量选择、分类、移出与删除画师。
+- 智能导入：合并 JSON 数据时保留现有封面、UUID 和自定义分类。
+- 数据更新：可在网页内调用 Danbooru API 更新热度和社交链接。
+- 本地存储：使用 IndexedDB 保存图片与画师资料，设置项使用 LocalStorage。
 
-1. **下载项目**：点击仓库右上角绿色的 `Code` -> `Download ZIP`。
-2. 解压到一个不会被轻易删除的文件夹。
-3. 双击直接使用浏览器打开里面的 `index.html` 开始管理。
-*(也可以通过 `git clone https://github.com/desperati0n/ai-artist-tool.git` 拉取最新代码)*
+## 快速开始
 
-> ⚠️ **强烈提醒：请务必养成定期点击左侧「导出」按钮备份数据的习惯！硬盘损坏、系统重装或清理浏览器数据都可能导致数据丢失，常导出压缩包能确保您的心血万无一失。**
+### 在线体验
 
-### 方案二：在线体验评估
+打开 [v15 GitHub Pages 页面](https://desperati0n.github.io/ai-artist-tool/index-spotlight.html)。在线页面适合体验；重要数据仍建议定期导出备份。
 
-如果你只是想先看看长什么样，项目已部署到 GitHub Pages，可以直接访问：
-👉 **[https://desperati0n.github.io/ai-artist-tool/](https://desperati0n.github.io/ai-artist-tool/)**
-*(仅适合临时体验，千万不要在这里长期存放重要数据)*
+### 本地使用
 
-## ⚙️ 使用指南 (Guide)
+1. 在仓库右上角选择 `Code` → `Download ZIP`，或者运行：
 
-1. **💡 作者的推荐用法 (测试/对比画师)**
-   - 找到数个你想尝试的画师组合在右边。
-   - 使用这些画师 tag，配合**极少量的质量词** (如 `masterpiece, best quality, 1girl`) 和**统一的负面词**跑一个相同特征的画面/固定随机种子。
-   - 这是非常直观的对比不同AI画师风格影响力的好习惯！
+   ```bash
+   git clone https://github.com/desperati0n/ai-artist-tool.git
+   ```
 
-2. **添加画师**
-   - 点击右上角的 `+ 添加` 按钮。
-   - 填写**显示名称** (例如 Mika Pikazo) 与 **Tag** (例如 `mika_pikazo`)。
-   - 设定画师所在的分类，您也可以上传一张本地图片作为预览封面。
-   - 保存后即可在主界面进行管理。
-   
-2. **构建提示词组合**
-   - 点击不同画师卡片，右侧栏会自动汇总这些画师。
-   - 可以点击上下箭头微调不同画师对画面的权重影响，并一键拷贝。
-   
-3. **导出/备份数据 与 智适应无损导入更新 (Smart Upsert)**
-   - ⚠️ **重要提示**：因为数据保存在浏览器本地（IndexedDB/LocalStorage）中，重装系统或强行清空浏览器所有缓存会导致数据丢失。
-   - **备份**：点击侧边栏的 `导出` 按钮，保存打包好的 `.json` 文件 到你的硬盘内。
-   - **无损更新（热重载）**：如果你手头拥有别人分享的最新版 JSON 存档或是自己用后面介绍的脚本刷取了最新卡片更新，直接点击 `导入` 选中它！**不再需要清空现有图库**，程序能够智能保留你本有的封面图、 UUID 以及自定义标签；并精准、安全地将最新画师库增量**灌注合并**进去。
-   
-4. **🧠 进阶功能：全自动画师信息抓取脚本 `fetch_danbooru_counts.py`**
-   - 从仓库中执行附带的 Python 脚本，它可以全自动读取你在上一步导出的本地 JSON 存档。
-   - **自动化获取热度与链接**：通过 Danbooru V2 官方最新架构，多线程地全自动探查每个画师的当前全网热度 (`danbooruCount`)，同时追踪收录画师名下的海量各流派官方主页链接进行排重合并（如 X.com, Pixiv, Xiaohongshu）。
-   - **快速使用**：
-     请确保您的网络环境（梯子）可以正常访问 Danbooru。
-     直接将你从网页导出的 `.json` 存档与 `fetch_danbooru_counts.py` 放在统一个目录下，然后双击运行脚本（或在终端执行 `python fetch_danbooru_counts.py`）即可。
-     执行完毕后会自动在您的目录下生成一个后缀名为 `_updated.json` 的全新更新存档。配合本工具主页刚引入的**无损导入倒灌功能(Smart Upsert)**直接重新 `导入` 导入这个新档，你所有的画师墙瞬间就实现了完美的时效性热重载！
-     
-## 🤝 贡献 (Contributing)
+2. 解压或进入项目目录。
+3. 双击 `index-spotlight.html` 使用 v15 界面。
+4. 如需经典界面，打开 `index.html`。
 
-欢迎提交意见反馈、Issue 或 Pull Request！
-如果你觉得这个工具好用，请给一个 ⭐️ Star 支持一下！
+应用不需要后端服务。页面通过 CDN 加载 Tailwind CSS 和 Phosphor Icons，因此首次打开或缓存缺失时需要网络连接。
+
+## 基本工作流
+
+1. 点击右上角“添加”，录入画师名称、Tag、分类和封面。
+2. 从左侧选择分类，在中间浏览或搜索画师。
+3. 点击卡片加入右侧 Prompt 编排区。
+4. 调整权重与顺序，选择 NAI 或 SDXL 输出格式。
+5. 复制 Prompt，或者把当前组合保存为预设。
+6. 定期使用左侧“导出”生成 JSON 备份。
+
+## 数据更新
+
+左侧“更新数据”可以直接在网页内访问 Danbooru API，支持：
+
+- 仅更新尚无热度数据的画师。
+- 强制更新全部画师。
+- 仅补充缺失的社交链接。
+- 调整请求速率、查看进度与随时取消。
+
+该功能需要当前网络能够访问 `danbooru.donmai.us`。仓库中的 `fetch_danbooru_counts.py` 仍可用于脚本化更新。
+
+## 数据与隐私
+
+画师资料、预览图和预设默认保存在当前浏览器的本地数据库中，不会自动上传到项目服务器。以下操作可能清除数据：
+
+- 清理浏览器站点数据或缓存。
+- 更换浏览器、浏览器配置文件或页面来源。
+- 重装系统或删除本地浏览器数据。
+
+请定期使用“导出”保存 JSON 备份。在线页面与本地文件的存储空间彼此独立，切换入口前请先导出数据。
+
+## 项目文件
+
+| 文件 | 用途 |
+| --- | --- |
+| `index-spotlight.html` | v15 黑曜石 × 骨白界面。 |
+| `index.html` | 保留的经典界面。 |
+| `fetch_danbooru_counts.py` | 可选的 Danbooru 批量更新脚本。 |
+| `CHANGELOG.md` | 版本更新记录。 |
+| `architecture_reference.md` | 项目结构与二次开发参考。 |
+
+## 贡献
+
+欢迎通过 [Issues](https://github.com/desperati0n/ai-artist-tool/issues) 提交问题和建议，也欢迎发起 Pull Request。提交界面改动时，请同时检查浅色/深色主题和窄屏布局，并确保现有数据流程不受影响。
 
 <div align="center">
-<p>Made with ❤️ for the AI Art Community</p>
+
+Made for practical AI art workflows.
+
 </div>
