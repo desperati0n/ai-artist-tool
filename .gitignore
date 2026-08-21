@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+
+# Local archives, backups, and migration snapshots may contain private user data.
+data/
+backups/
+data.before-legacy-import-*/

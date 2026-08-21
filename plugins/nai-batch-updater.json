@@ -1,0 +1,8 @@
+{
+  "id": "nai-batch-updater",
+  "name": "NAI 批量更新",
+  "version": "1.0.0",
+  "entry": "nai-batch-updater.js",
+  "host": "ai-artist-manager",
+  "mount": "sidebar"
+}

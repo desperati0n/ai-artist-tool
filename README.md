@@ -5,10 +5,10 @@
 **本地优先的画师资料、风格预设与 Prompt 编排工具。**
 
 [![Release](https://img.shields.io/badge/release-v15-20201e)](https://github.com/desperati0n/ai-artist-tool/releases/tag/v15)
-[![UI](https://img.shields.io/badge/UI-Obsidian%20%26%20Bone-e8e3d9)](https://desperati0n.github.io/ai-artist-tool/index-spotlight.html)
+[![UI](https://img.shields.io/badge/UI-Obsidian%20%26%20Bone-e8e3d9)](https://desperati0n.github.io/ai-artist-tool/index.html)
 [![Storage](https://img.shields.io/badge/storage-local--first-596554)](#数据与隐私)
 
-[在线体验 v15](https://desperati0n.github.io/ai-artist-tool/index-spotlight.html) · [查看 Changelog](CHANGELOG.md) · [反馈问题](https://github.com/desperati0n/ai-artist-tool/issues)
+[在线体验 v15](https://desperati0n.github.io/ai-artist-tool/index.html) · [查看 Changelog](CHANGELOG.md) · [反馈问题](https://github.com/desperati0n/ai-artist-tool/issues)
 
 </div>
 
@@ -18,7 +18,7 @@
 
 AI Artist Manager 用来整理画师 Tag、预览图、分类与常用风格组合，并把选中的画师快速转换成 NovelAI 或 Stable Diffusion 可用的 Prompt。
 
-v15 提供一套独立的新界面 `index-spotlight.html`。它保留原有数据和功能，将工作流程重新组织为分类、画师浏览和 Prompt 编排三个明确区域。经典界面 `index.html` 仍然保留，方便比较或回退。
+v15 现在统一使用 `index.html` 作为唯一入口。它保留原有数据和功能，将工作流程重新组织为分类、画师浏览和 Prompt 编排三个明确区域。
 
 ## v15 更新重点
 
@@ -44,13 +44,14 @@ v15 提供一套独立的新界面 `index-spotlight.html`。它保留原有数�
 - 批量管理：批量选择、分类、移出与删除画师。
 - 智能导入：合并 JSON 数据时保留现有封面、UUID 和自定义分类。
 - 数据更新：可在网页内调用 Danbooru API 更新热度和社交链接。
+- NAI 批量更新插件：从画师列表批量生成新例图，逐张审查后直接写回 IndexedDB，并沿用原有导出格式。
 - 本地存储：使用 IndexedDB 保存图片与画师资料，设置项使用 LocalStorage。
 
 ## 快速开始
 
 ### 在线体验
 
-打开 [v15 GitHub Pages 页面](https://desperati0n.github.io/ai-artist-tool/index-spotlight.html)。在线页面适合体验；重要数据仍建议定期导出备份。
+打开 [v15 GitHub Pages 页面](https://desperati0n.github.io/ai-artist-tool/index.html)。在线页面适合体验；重要数据仍建议定期导出备份。
 
 ### 本地使用
 
@@ -61,8 +62,7 @@ v15 提供一套独立的新界面 `index-spotlight.html`。它保留原有数�
    ```
 
 2. 解压或进入项目目录。
-3. 双击 `index-spotlight.html` 使用 v15 界面。
-4. 如需经典界面，打开 `index.html`。
+3. 双击 `index.html` 使用 v15 界面。
 
 应用不需要后端服务。页面通过 CDN 加载 Tailwind CSS 和 Phosphor Icons，因此首次打开或缓存缺失时需要网络连接。
 
@@ -74,6 +74,17 @@ v15 提供一套独立的新界面 `index-spotlight.html`。它保留原有数�
 4. 调整权重与顺序，选择 NAI 或 SDXL 输出格式。
 5. 复制 Prompt，或者把当前组合保存为预设。
 6. 定期使用左侧“导出”生成 JSON 备份。
+
+在右侧 Prompt 编排区粘贴别人的画师串后，点击“送到生图区”可以自动收录本地没有的画师，并打开 NAI 批量生图窗口补齐例图。
+
+### NAI 批量生图插件
+
+- 在当前分类和搜索结果中显示“有例图”标记。
+- “全选”只选择当前分类/搜索结果；“选择无例图”只选择当前分类中缺少例图的画师。
+- 从 Prompt 编排区粘贴别人的画师串后，可一键收录缺失画师，并只把没有例图的画师送入生图区。
+- 当前画师串全部已有例图时，“送到生图区”按钮自动隐藏。
+- 每位画师单独请求 1 张图片，支持暂停、停止、失败重试和逐张通过/拒绝。
+- 通过审核的图片会直接写回画师资料；API Key 只在当前页面会话内存中保留，关闭窗口不会丢失，刷新页面后清除。
 
 ## 数据更新
 
@@ -100,9 +111,9 @@ v15 提供一套独立的新界面 `index-spotlight.html`。它保留原有数�
 
 | 文件 | 用途 |
 | --- | --- |
-| `index-spotlight.html` | v15 黑曜石 × 骨白界面。 |
-| `index.html` | 保留的经典界面。 |
+| `index.html` | 唯一的 v15 黑曜石 × 骨白界面。 |
 | `fetch_danbooru_counts.py` | 可选的 Danbooru 批量更新脚本。 |
+| `plugins/nai-batch-updater.js` | NAI 批量生图与例图审查插件。 |
 | `CHANGELOG.md` | 版本更新记录。 |
 | `architecture_reference.md` | 项目结构与二次开发参考。 |
 

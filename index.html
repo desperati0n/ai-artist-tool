@@ -102,6 +102,11 @@
         .dark #artist-preview-tooltip { background: rgba(15,23,42,0.95); border-color: rgba(255,255,255,0.08); }
         #artist-preview-tooltip.show { display: block; opacity: 1; }
         #artist-preview-tooltip img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+        #artist-preview-tooltip img {
+            height: 100%;
+            max-width: none;
+            object-position: center;
+        }
         #artist-preview-tooltip .preview-label { padding: 8px 12px; font-size: 11px; font-weight: 700; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .dark #artist-preview-tooltip .preview-label { color: #e2e8f0; }
         #artist-preview-tooltip .preview-pct { font-size: 10px; color: #94a3b8; font-weight: 600; margin-left: 4px; }
@@ -363,27 +368,47 @@
         }
         #grid-container > .grid {
             display: grid !important;
-            grid-template-columns: repeat(auto-fill, minmax(9.75rem, 1fr)) !important;
-            grid-auto-flow: dense;
+            grid-template-columns: repeat(auto-fit, minmax(9.75rem, 1fr));
+            align-content: flex-start;
             gap: .75rem !important;
             padding-bottom: .5rem !important;
         }
-        .glass-card,
-        .dark .glass-card {
+        /* Fill stretched grid rows with the metadata panel, not the selected-card background. */
+        #grid-container > .grid > .glass-card {
+            min-width: 0;
             display: flex;
             flex-direction: column;
-            border: 0 !important;
+        }
+        /* Keep artist artwork locked to the card frame at every viewport/browser zoom. */
+        .artist-card-media {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 3 / 4;
+            overflow: hidden;
+            background: var(--nt-surface-hover);
+        }
+        .artist-card-media > .artist-card-image {
+            position: absolute;
+            inset: 0;
+            display: block;
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            object-fit: cover;
+            object-position: center;
+        }
+        .glass-card,
+        .dark .glass-card {
+            border: 1px solid var(--nt-line);
             border-radius: var(--nt-radius-lg) !important;
-            padding: 1px;
-            background: var(--nt-card-frame) !important;
+            background: var(--nt-surface);
             color: var(--nt-ink);
             box-shadow: none;
             backdrop-filter: none;
-            overflow: visible !important;
             transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
         }
         .glass-card:hover {
-            background: var(--nt-card-frame-hover) !important;
+            border-color: #d2d2d2;
             transform: translateY(-1px) !important;
             box-shadow: 0 2px 8px rgba(0,0,0,.04) !important;
         }
@@ -408,7 +433,7 @@
         }
         .spotlight-card::before {
             z-index: 31;
-            padding: 1px;
+            padding: 2px;
             background: radial-gradient(
                 var(--spot-radius) circle at var(--spot-x) var(--spot-y),
                 var(--nt-spot-strong),
@@ -626,11 +651,12 @@
             line-height: 1.5;
         }
         #res-box:focus { border-color: var(--nt-primary) !important; }
-        #res-box + div { display: grid !important; grid-template-columns: 1fr 1fr 1.35fr 40px; gap: .4rem !important; }
+        #res-box + div { display: grid !important; grid-template-columns: 1fr 1fr 1.35fr 1.15fr 40px; gap: .4rem !important; }
+        #res-box + div:not(:has(button[onclick^="sendPromptToNaiBatch"])) { grid-template-columns: 1fr 1fr 1.35fr 40px !important; }
         #res-box + div button { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-height: 36px; border: 1px solid var(--nt-line) !important; border-radius: var(--nt-radius-md) !important; background: var(--nt-surface) !important; color: var(--nt-ink) !important; box-shadow: none !important; line-height: 1 !important; }
         #res-box + div button .origin-button__content { width: 100%; justify-content: center; }
         #res-box + div button:last-child { padding: 0 !important; }
-        #res-box + div button:nth-child(3) { border-color: var(--nt-primary) !important; background: var(--nt-primary) !important; color: var(--nt-primary-contrast) !important; }
+        #res-box + div button:nth-child(3), #res-box + div button:nth-child(4) { border-color: var(--nt-primary) !important; background: var(--nt-primary) !important; color: var(--nt-primary-contrast) !important; }
         #res-box + div button:last-child { color: var(--nt-danger) !important; }
 
         #modal-container .fixed.inset-0 > .absolute { background: rgba(0,0,0,.42) !important; backdrop-filter: none !important; }
@@ -704,10 +730,10 @@
             .tool-actions button:not(.origin-button) > span,
             .tool-actions button.origin-button > .origin-button__content > span { display: none; }
             #grid-container { padding: .75rem !important; }
-            #grid-container > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .6rem !important; }
+            #grid-container > .grid { gap: .6rem !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 480px) {
-            #grid-container > .grid { grid-template-columns: 1fr !important; }
+            #grid-container > .grid { grid-template-columns: 1fr; }
         }
 
         /* Final contrast guard: component-specific button colors must not beat the animated fill state. */
@@ -743,14 +769,20 @@
         const PRESET_KEY = 'nai-v12-presets';
         const THEME_KEY = 'nai-v12-theme';
 
-        const db = {
+        const browserDb = {
             conn: null,
+            lastError: null,
             async open() {
                 if (this.conn) return this.conn;
                 return new Promise((resolve, reject) => {
                     const req = indexedDB.open(DB_NAME, 1);
                     req.onerror = () => reject('DB Error');
-                    req.onsuccess = (e) => { this.conn = e.target.result; resolve(this.conn); };
+                    req.onsuccess = (e) => {
+                        this.conn = e.target.result;
+                        this.conn.onversionchange = () => { this.conn?.close(); this.conn = null; };
+                        this.conn.onclose = () => { this.conn = null; };
+                        resolve(this.conn);
+                    };
                     req.onupgradeneeded = (e) => {
                         const db = e.target.result;
                         if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
@@ -758,43 +790,252 @@
                 });
             },
             async put(id, data) {
-                try {
-                    const conn = await this.open();
-                    return new Promise((r) => { const tx = conn.transaction(STORE_NAME, 'readwrite'); tx.objectStore(STORE_NAME).put(data, String(id)); tx.oncomplete = r; tx.onerror=()=>r(); });
-                } catch(e){}
+                const conn = await this.open();
+                return await new Promise((resolve, reject) => {
+                    const tx = conn.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).put(data, String(id));
+                    tx.oncomplete = () => resolve(data);
+                    tx.onerror = () => reject(tx.error || new Error('写入浏览器图片存储失败'));
+                    tx.onabort = () => reject(tx.error || new Error('浏览器图片写入事务已中止'));
+                });
             },
             async get(id) {
+                this.lastError = null;
                 try {
                     const conn = await this.open();
-                    return new Promise((r) => { const tx = conn.transaction(STORE_NAME, 'readonly'); const req = tx.objectStore(STORE_NAME).get(String(id)); req.onsuccess = () => r(req.result); req.onerror = () => r(null); });
-                } catch(e) { return null; }
+                    return await new Promise((resolve) => {
+                        let settled = false;
+                        const done = (value) => { if (!settled) { settled = true; resolve(value ?? null); } };
+                        try {
+                            const tx = conn.transaction(STORE_NAME, 'readonly');
+                            const req = tx.objectStore(STORE_NAME).get(String(id));
+                            req.onsuccess = () => done(req.result);
+                            req.onerror = () => { this.lastError = req.error || new Error('读取图片失败'); done(null); };
+                            tx.onerror = () => { this.lastError = tx.error || new Error('读取图片事务失败'); done(null); };
+                            tx.onabort = () => { this.lastError = tx.error || new Error('读取图片事务已中止'); done(null); };
+                        } catch (error) {
+                            this.conn = null;
+                            this.lastError = error;
+                            done(null);
+                        }
+                    });
+                } catch(e) { this.lastError = e; return null; }
             },
             async delete(id) {
-                try {
-                    const conn = await this.open();
-                    return new Promise((r) => { const tx = conn.transaction(STORE_NAME, 'readwrite'); tx.objectStore(STORE_NAME).delete(String(id)); tx.oncomplete = r; });
-                } catch(e){}
+                const conn = await this.open();
+                return await new Promise((resolve, reject) => {
+                    const tx = conn.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).delete(String(id));
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error || new Error('删除浏览器图片失败'));
+                    tx.onabort = () => reject(tx.error || new Error('浏览器图片删除事务已中止'));
+                });
+            },
+            async clear() {
+                const conn = await this.open();
+                return await new Promise((resolve, reject) => {
+                    const tx = conn.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).clear();
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error || new Error('清理浏览器图片失败'));
+                    tx.onabort = () => reject(tx.error || new Error('浏览器图片清理事务已中止'));
+                });
             }
         };
 
-        const compressImage = (file) => new Promise((resolve) => {
+        const readImageWithoutReencoding = (file) => new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
-            reader.onload = (e) => {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_W = 400;
-                    let w = img.width, h = img.height;
-                    if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
-                    canvas.width = w; canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
-                    resolve(canvas.toDataURL('image/jpeg', 0.85));
-                };
-            };
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error('读取图片失败'));
         });
+        // Keep the old function name used by the modal markup, but preserve the
+        // original file bytes instead of resizing/re-encoding the image.
+        const compressImage = readImageWithoutReencoding;
+
+        const localArchive = {
+            available: false,
+            initialized: false,
+            imageCount: 0,
+            imageIndex: new Map(),
+            imageIndexReady: false,
+            suspendWrites: false,
+            saveTimer: null,
+            saveChain: Promise.resolve(),
+            lastError: null,
+            snapshot() {
+                return {
+                    version: 14,
+                    updatedAt: new Date().toISOString(),
+                    theme: state.theme,
+                    categories: Array.isArray(state.categories) ? [...state.categories] : [],
+                    artists: state.artists.filter(a => a && typeof a === 'object' && !a._ghost).map(({imageUrl, ...artist}) => artist),
+                    presets: state.presets.filter(p => p && typeof p === 'object').map(({imageUrl, ...preset}) => preset)
+                };
+            },
+            async connect() {
+                if (location.protocol === 'file:') return null;
+                try {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 1500);
+                    const statusResponse = await fetch('/api/status', { cache: 'no-store', signal: controller.signal });
+                    clearTimeout(timer);
+                    if (!statusResponse.ok) return null;
+                    const status = await statusResponse.json();
+                    if (!status.localArchive) return null;
+                    this.available = true;
+                    this.initialized = Boolean(status.initialized);
+                    this.imageCount = Number(status.imageCount) || 0;
+                    const loadResponse = await fetch('/api/load', { cache: 'no-store' });
+                    if (!loadResponse.ok) throw new Error(`读取本地存档失败 (${loadResponse.status})`);
+                    const payload = await loadResponse.json();
+                    this.initialized = Boolean(payload?._localArchive?.initialized);
+                    this.imageIndex = new Map(Object.entries(payload?._localArchive?.imageIndex || {}));
+                    this.imageIndexReady = true;
+                    this.imageCount = this.imageIndex.size;
+                    return payload;
+                } catch (error) {
+                    this.available = false;
+                    this.lastError = error;
+                    return null;
+                }
+            },
+            scheduleSave() {
+                if (!this.available || this.suspendWrites) return;
+                clearTimeout(this.saveTimer);
+                this.saveTimer = setTimeout(() => {
+                    this.saveTimer = null;
+                    this.flush().catch(error => {
+                        console.error('Local archive save failed:', error);
+                        showToast(`本地存档失败：${error.message || error}`);
+                    });
+                }, 180);
+            },
+            async flush() {
+                if (!this.available || this.suspendWrites) return;
+                if (this.saveTimer) {
+                    clearTimeout(this.saveTimer);
+                    this.saveTimer = null;
+                }
+                const payload = this.snapshot();
+                this.saveChain = this.saveChain.catch(() => {}).then(async () => {
+                    const response = await fetch('/api/save-meta', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const result = await response.json().catch(() => ({}));
+                        throw new Error(result.error || `HTTP ${response.status}`);
+                    }
+                    this.initialized = true;
+                });
+                return this.saveChain;
+            },
+            async imageBlob(value) {
+                if (value instanceof Blob) return value;
+                if (typeof value !== 'string' || !value) throw new Error('无效图片数据');
+                const response = await fetch(value);
+                if (!response.ok) throw new Error(`读取待保存图片失败 (${response.status})`);
+                return await response.blob();
+            },
+            imageUrl(id, version = 'local', thumbnail = false) {
+                const endpoint = thumbnail ? 'thumbnail' : 'image';
+                return `/api/${endpoint}/${encodeURIComponent(String(id))}?v=${encodeURIComponent(String(version))}`;
+            },
+            async putImage(id, value, options = {}) {
+                const blob = await this.imageBlob(value);
+                const response = await fetch(`/api/image/${encodeURIComponent(String(id))}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': blob.type || 'application/octet-stream',
+                        ...(options.stripMetadata ? { 'X-Strip-Metadata': '1' } : {})
+                    },
+                    body: blob
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.error || `图片写入失败 (${response.status})`);
+                if (result.created) this.imageCount++;
+                this.imageIndex.set(String(id), Number(result.version) || Date.now());
+                return result.url || this.imageUrl(id);
+            },
+            async getImage(id, options = {}) {
+                id = String(id);
+                if (this.imageIndexReady) {
+                    if (!this.imageIndex.has(id)) return null;
+                    return this.imageUrl(id, this.imageIndex.get(id), Boolean(options.thumbnail));
+                }
+                const response = await fetch(`/api/image/${encodeURIComponent(String(id))}`, { method: 'HEAD', cache: 'no-store' });
+                if (response.ok) return this.imageUrl(id, 'local', Boolean(options.thumbnail));
+                if (response.status === 404) return null;
+                throw new Error(`读取本地图片失败 (${response.status})`);
+            },
+            async deleteImage(id) {
+                const response = await fetch(`/api/image/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error(`删除本地图片失败 (${response.status})`);
+                if (this.imageIndex.delete(String(id))) this.imageCount = Math.max(0, this.imageCount - 1);
+            },
+            async importZip(file) {
+                const response = await fetch('/api/import-archive', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/zip' },
+                    body: file
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.error || `ZIP 恢复失败 (${response.status})`);
+                return result;
+            }
+        };
+
+        const db = {
+            lastError: null,
+            async put(id, data, options = {}) {
+                this.lastError = null;
+                try {
+                    if (localArchive.available) {
+                        const saved = await localArchive.putImage(id, data, options);
+                        delete state.thumbnailImages[String(id)];
+                        state.preloadedThumbnailIds.delete(String(id));
+                        return saved;
+                    }
+                    return await browserDb.put(id, data);
+                } catch (error) {
+                    this.lastError = error;
+                    throw error;
+                }
+            },
+            async get(id, options = {}) {
+                this.lastError = null;
+                if (localArchive.available) {
+                    try {
+                        const localImage = await localArchive.getImage(id, options);
+                        if (localImage) return localImage;
+                    } catch (error) {
+                        this.lastError = error;
+                    }
+                }
+                const browserImage = await browserDb.get(id);
+                if (!browserImage && browserDb.lastError) this.lastError = browserDb.lastError;
+                return browserImage;
+            },
+            async delete(id) {
+                this.lastError = null;
+                try {
+                    if (localArchive.available) {
+                        await localArchive.deleteImage(id);
+                        delete state.thumbnailImages[String(id)];
+                        state.preloadedThumbnailIds.delete(String(id));
+                        try { await browserDb.delete(id); } catch (browserError) { console.warn('Unable to delete legacy browser image:', browserError); }
+                    } else {
+                        await browserDb.delete(id);
+                    }
+                } catch (error) {
+                    this.lastError = error;
+                    throw error;
+                }
+            },
+            getBrowser: id => browserDb.get(id)
+        };
 
         // =========================================
         // 2. 状态管理
@@ -808,47 +1049,144 @@
             currentCategory: '全部',
             sortMode: 'default',
             page: 1,
+            // Keep pagination independent from card measurements. CSS grid and
+            // the scroll container handle viewport/zoom changes without a
+            // resize-render feedback loop at the end of a page.
             pageSize: 24,
             selected: {}, 
             selectedOrder: [], // explicit order for selected artists
             batchMode: false,
             batchSelected: {}, 
             promptFormat: 'novelai',
-            pageImages: {}, 
+            pageImages: {},
+            thumbnailImages: {},
+            preloadedThumbnailIds: new Set(),
+            thumbnailWarmupToken: 0,
             modal: null, 
             editingId: null,
             formData: {},
-            theme: 'light'
+            theme: 'light',
+            composerImageKey: '',
+            composerImageFlagsReady: false,
+            composerHasMissingImages: false
+        };
+
+        const normalizeArtists = (items) => (Array.isArray(items) ? items : []).filter(a => a && typeof a === 'object').map(a => ({
+            ...a,
+            id: String(a.id),
+            name: a.name || a.tag || 'Unknown',
+            tag: a.tag || a.name || '',
+            categories: Array.isArray(a.categories) ? a.categories : [a.category || '未分类'],
+            socialLinks: Array.isArray(a.socialLinks) ? a.socialLinks : []
+        }));
+
+        const writeBrowserMetadata = (key, value) => {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (error) {
+                console.warn(`Unable to mirror metadata in localStorage: ${key}`, error);
+            }
+        };
+
+        const migrateBrowserArchiveToLocal = async () => {
+            if (!localArchive.available || localArchive.initialized) return;
+            showToast('正在把浏览器存档迁移到项目 data 目录...');
+            await localArchive.flush();
+            const ids = [...new Set([
+                ...state.artists.map(item => String(item.id)),
+                ...state.presets.map(item => String(item.id))
+            ])];
+            let migrated = 0;
+            let failed = 0;
+            for (const id of ids) {
+                let image = null;
+                try { image = await browserDb.get(id); }
+                catch (error) { failed++; console.warn(`Unable to read browser image ${id}:`, error); continue; }
+                if (!image) continue;
+                try {
+                    await localArchive.putImage(id, image);
+                    migrated++;
+                } catch (error) {
+                    failed++;
+                    console.warn(`Unable to migrate browser image ${id}:`, error);
+                }
+            }
+            localArchive.initialized = true;
+            renderSidebarLeft();
+            showToast(failed
+                ? `本地迁移完成：${migrated} 张图片，${failed} 张失败；浏览器旧副本仍保留`
+                : `本地迁移完成：${migrated} 张原图；浏览器旧副本暂时保留`);
         };
 
         const actions = {
             init: async () => {
+                const readStoredJson = (key, fallback) => {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) return fallback;
+                    try {
+                        const parsed = JSON.parse(raw);
+                        return parsed ?? fallback;
+                    } catch (error) {
+                        console.warn(`Ignoring invalid local storage value: ${key}`, error);
+                        return fallback;
+                    }
+                };
                 state.theme = localStorage.getItem(THEME_KEY) || 'light';
-                const savedCats = localStorage.getItem(CATEGORY_KEY);
-                state.categories = savedCats ? JSON.parse(savedCats) : ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
-                const savedPresets = localStorage.getItem(PRESET_KEY);
-                state.presets = savedPresets ? JSON.parse(savedPresets) : [];
+                const storedCategories = readStoredJson(CATEGORY_KEY, null);
+                const storedPresets = readStoredJson(PRESET_KEY, null);
+                state.categories = Array.isArray(storedCategories) ? storedCategories.filter(c => typeof c === 'string') : ["二次元", "厚涂", "写实", "水墨", "黑白", "R18"];
+                state.presets = Array.isArray(storedPresets) ? storedPresets.filter(p => p && typeof p === 'object') : [];
                 const savedMeta = localStorage.getItem(METADATA_KEY);
                 if(savedMeta) {
                     try {
-                        const parsed = JSON.parse(savedMeta);
-                        state.artists = parsed.map(a => ({
-                            ...a, id: String(a.id), name: a.name||a.tag||'Unknown', tag: a.tag||a.name||'',
-                            categories: Array.isArray(a.categories) ? a.categories : [a.category || '未分类'],
-                            socialLinks: Array.isArray(a.socialLinks) ? a.socialLinks : []
-                        }));
+                        state.artists = normalizeArtists(JSON.parse(savedMeta));
                     } catch(e) { state.artists = []; }
                 }
+                const localPayload = await localArchive.connect();
+                const shouldMigrateBrowserArchive = Boolean(localArchive.available && !localArchive.initialized);
+                if (localArchive.available && localArchive.initialized && localPayload) {
+                    state.theme = localPayload.theme === 'dark' ? 'dark' : 'light';
+                    state.categories = Array.isArray(localPayload.categories) ? localPayload.categories.filter(c => typeof c === 'string') : [];
+                    state.presets = Array.isArray(localPayload.presets) ? localPayload.presets.filter(p => p && typeof p === 'object').map(p => ({ ...p, id: String(p.id), items: Array.isArray(p.items) ? p.items.map(item => ({ ...item, id: String(item.id) })) : [] })) : [];
+                    state.artists = normalizeArtists(localPayload.artists);
+                }
                 renderAppStructure();
-                initResponsivePagination();
                 updateTheme();
                 renderAll();
+                if (shouldMigrateBrowserArchive) {
+                    migrateBrowserArchiveToLocal().catch(error => {
+                        console.error('Browser archive migration failed:', error);
+                        showToast(`迁移失败：${error.message || error}`);
+                    });
+                }
             },
-            
-            saveMeta: () => localStorage.setItem(METADATA_KEY, JSON.stringify(state.artists.map(({imageUrl, ...r})=>r))),
-            saveCats: () => localStorage.setItem(CATEGORY_KEY, JSON.stringify(state.categories)),
-            savePresets: () => localStorage.setItem(PRESET_KEY, JSON.stringify(state.presets)),
-            setTheme: (t) => { state.theme = t; localStorage.setItem(THEME_KEY, t); updateTheme(); },
+
+            saveMeta: () => { writeBrowserMetadata(METADATA_KEY, state.artists.map(({imageUrl, ...r})=>r)); localArchive.scheduleSave(); },
+            saveCats: () => { writeBrowserMetadata(CATEGORY_KEY, state.categories); localArchive.scheduleSave(); },
+            savePresets: () => { writeBrowserMetadata(PRESET_KEY, state.presets); localArchive.scheduleSave(); },
+            setTheme: (t) => { state.theme = t; localStorage.setItem(THEME_KEY, t); localArchive.scheduleSave(); updateTheme(); },
+            releaseBrowserImages: async () => {
+                if (!localArchive.available || !localArchive.initialized) return showToast('请先启动本地存档服务并完成迁移');
+                const ids = [...new Set([...state.artists.map(a => String(a.id)), ...state.presets.map(p => String(p.id))])];
+                showToast('正在核对本地原图...');
+                const missing = [];
+                for (const id of ids) {
+                    const browserImage = await browserDb.get(id);
+                    if (!browserImage) continue;
+                    let localImage = await localArchive.getImage(id).catch(() => null);
+                    if (!localImage) {
+                        try { localImage = await localArchive.putImage(id, browserImage); }
+                        catch (error) { console.warn(`Unable to finish migration for ${id}:`, error); }
+                    }
+                    if (!localImage) missing.push(id);
+                }
+                if (missing.length) return showToast(`暂不清理：有 ${missing.length} 张浏览器图片尚未迁移`);
+                if (!confirm('已确认项目 data/images 中存在对应原图。确定清空浏览器里的旧图片副本以释放空间吗？')) return;
+                await browserDb.clear();
+                state.pageImages = {};
+                renderGrid();
+                showToast('浏览器旧图片已清理；本地原图不受影响');
+            },
 
             setViewMode: (mode) => {
                 state.viewMode = mode;
@@ -1037,7 +1375,7 @@
                 if(!name) return showToast("请输入预设名称");
                 const ids = Object.keys(state.selected);
                 const id = String(Date.now());
-                if(imageUrl && imageUrl.startsWith('data:')) { await db.put(id, imageUrl); state.pageImages[id] = imageUrl; }
+                if(imageUrl && imageUrl.startsWith('data:')) { state.pageImages[id] = await db.put(id, imageUrl); }
                 const preset = { id, name, items: ids.map(mid => ({ id: mid, weight: state.selected[mid] })), createdAt: Date.now() };
                 state.presets.unshift(preset);
                 actions.savePresets();
@@ -1059,7 +1397,7 @@
                 const { name, imageUrl } = state.formData;
                 if(!name) return showToast("名称不能为空");
                 const id = state.editingId;
-                if(imageUrl && imageUrl.startsWith('data:')) { await db.put(id, imageUrl); state.pageImages[id] = imageUrl; }
+                if(imageUrl && imageUrl.startsWith('data:')) { state.pageImages[id] = await db.put(id, imageUrl); }
                 state.presets = state.presets.map(p => { if(p.id === id) { return { ...p, name, items: state.formData.items }; } return p; });
                 actions.savePresets();
                 state.modal = null; renderModal();
@@ -1077,22 +1415,246 @@
             // --- 智能导入 ---
             importData: async (file) => {
                 if(!file) return;
+                if (/\.zip$/i.test(file.name || '')) {
+                    if (!localArchive.available) return showToast('ZIP 存档需要通过 run_server.py 打开工具后恢复');
+                    if (!confirm('恢复 ZIP 会用备份内容替换当前项目 data 存档。确定继续吗？')) return;
+                    showToast('正在把 ZIP 恢复到项目目录...');
+                    try {
+                        await localArchive.flush();
+                        localArchive.suspendWrites = true;
+                        const result = await localArchive.importZip(file);
+                        showToast(`恢复完成：${result.artists || 0} 位画师，${result.images || 0} 张原图`);
+                        setTimeout(() => location.reload(), 500);
+                    } catch (error) {
+                        localArchive.suspendWrites = false;
+                        console.error('ZIP import failed:', error);
+                        showToast(`ZIP 恢复失败：${error.message || error}`);
+                    }
+                    return;
+                }
+                const importLargeBackup = async (largeFile) => {
+                    if (!largeFile.stream || typeof TextDecoder === 'undefined') throw new Error('当前浏览器不支持大文件流式导入');
+                    const existingTags = new Set(state.artists.map(a => String(a.tag || '').toLowerCase()));
+                    const existingPresetNames = new Set(state.presets.map(p => String(p.name || '')));
+                    const usedIds = new Set([...state.artists, ...state.presets].map(item => String(item.id)));
+                    const importedArtistIds = new Map();
+                    const allocateImportedId = (sourceId) => {
+                        const candidate = String(sourceId || '');
+                        if (/^[A-Za-z0-9._-]{1,160}$/.test(candidate) && !usedIds.has(candidate)) {
+                            usedIds.add(candidate);
+                            return candidate;
+                        }
+                        let generated;
+                        do { generated = String(Date.now() + Math.random()); } while (usedIds.has(generated));
+                        usedIds.add(generated);
+                        return generated;
+                    };
+                    let addedCount = 0;
+                    let updatedCount = 0;
+                    let importedImages = 0;
+                    const importArtist = async (item) => {
+                        if (!item || typeof item !== 'object') return;
+                        let tag = String(item.tag || item.prompt || '');
+                        let name = String(item.name || '');
+                        if (!tag && name) tag = name;
+                        if (!name && tag) name = tag;
+                        if (!tag) return;
+                        let cats = Array.isArray(item.categories) ? item.categories.filter(c => typeof c === 'string') : [];
+                        if (item.category && item.category !== '未分类') cats.push(String(item.category));
+                        cats = [...new Set(cats.length ? cats : ['未分类'])];
+                        cats.forEach(c => { if (c !== '未分类' && !state.categories.includes(c)) state.categories.push(c); });
+                        const img = typeof item.imageUrl === 'string' ? item.imageUrl : (typeof item.image === 'string' ? item.image : '');
+                        const existing = state.artists.find(a => String(a.tag || '').toLowerCase() === tag.toLowerCase());
+                        if (existing) {
+                            if (item.id !== undefined && item.id !== null) importedArtistIds.set(String(item.id), String(existing.id));
+                            if (img.startsWith('data:')) { state.pageImages[existing.id] = await db.put(existing.id, img); importedImages++; }
+                            if (item.danbooruCount !== undefined) existing.danbooruCount = parseInt(item.danbooruCount) || 0;
+                            if (Array.isArray(item.socialLinks)) existing.socialLinks = item.socialLinks;
+                            existing.categories = [...new Set([...(existing.categories || []), ...cats])];
+                            updatedCount++;
+                        } else {
+                            const id = allocateImportedId(item.id);
+                            if (item.id !== undefined && item.id !== null) importedArtistIds.set(String(item.id), id);
+                            if (img.startsWith('data:')) { state.pageImages[id] = await db.put(id, img); importedImages++; }
+                            state.artists.push({ id, name: name || 'Unknown', tag, categories: cats, danbooruCount: parseInt(item.danbooruCount) || 0, socialLinks: Array.isArray(item.socialLinks) ? item.socialLinks : [], createdAt: item.createdAt || Date.now() });
+                            existingTags.add(tag.toLowerCase());
+                            addedCount++;
+                        }
+                    };
+                    const importPreset = async (item) => {
+                        if (!item || typeof item !== 'object') return;
+                        const name = String(item.name || '');
+                        if (existingPresetNames.has(name)) return;
+                        const id = allocateImportedId(item.id);
+                        const imageValue = typeof item.imageUrl === 'string' ? item.imageUrl : (typeof item.image === 'string' ? item.image : '');
+                        if (imageValue.startsWith('data:')) { state.pageImages[id] = await db.put(id, imageValue); importedImages++; }
+                        const { imageUrl, image: _image, ...meta } = item;
+                        const remappedItems = Array.isArray(item.items) ? item.items.map(presetItem => ({
+                            ...presetItem,
+                            id: importedArtistIds.get(String(presetItem.id)) || String(presetItem.id)
+                        })) : [];
+                        state.presets.push({ ...meta, id, name, items: remappedItems });
+                        existingPresetNames.add(name);
+                    };
+                    const markerFor = key => `"${key}":[`;
+                    const reader = largeFile.stream().getReader();
+                    const decoder = new TextDecoder();
+                    let headerApplied = false;
+                    let phase = 'find-artists';
+                    let search = '';
+                    let parser = null;
+                    const createParser = (callback) => {
+                        let depth = 0, objectStart = -1, inString = false, escaped = false;
+                        return async (text) => {
+                            for (let i = 0; i < text.length; i++) {
+                                const ch = text[i];
+                                if (inString) {
+                                    if (escaped) escaped = false; else if (ch === '\\') escaped = true; else if (ch === '"') inString = false;
+                                    if (depth > 0) search += ch;
+                                    continue;
+                                }
+                                if (ch === '"') { inString = true; if (depth > 0) search += ch; continue; }
+                                if (depth === 0 && ch === ']') return { done: true, rest: text.slice(i + 1) };
+                                if (ch === '{') { if (depth === 0) { search = ''; objectStart = i; } depth++; search += ch; continue; }
+                                if (depth > 0) search += ch;
+                                if (ch === '}' && depth > 0) { depth--; if (depth === 0) { const value = JSON.parse(search); await callback(value); search = ''; objectStart = -1; } }
+                            }
+                            return { done: false, rest: '' };
+                        };
+                    };
+                    const feed = async (text) => {
+                        let rest = text;
+                        while (rest.length) {
+                            if (phase === 'find-artists' || phase === 'find-presets') {
+                                search += rest;
+                                const marker = markerFor(phase === 'find-artists' ? 'artists' : 'presets');
+                                const at = search.indexOf(marker);
+                                if (at < 0) { search = search.slice(-marker.length); return; }
+                                rest = search.slice(at + marker.length); search = '';
+                                parser = createParser(phase === 'find-artists' ? importArtist : importPreset);
+                                phase = phase === 'find-artists' ? 'artists' : 'presets';
+                            } else {
+                                const result = await parser(rest);
+                                if (!result.done) return;
+                                rest = result.rest;
+                                search = '';
+                                phase = phase === 'artists' ? 'find-presets' : 'done';
+                                if (phase === 'done') return;
+                            }
+                        }
+                    };
+                    showToast('正在流式导入大备份...');
+                    while (true) {
+                        const chunk = await reader.read();
+                        if (chunk.done) break;
+                        const text = decoder.decode(chunk.value, { stream: true });
+                        if (!headerApplied) {
+                            const themeMatch = text.match(/"theme":"(light|dark)"/);
+                            if (themeMatch) actions.setTheme(themeMatch[1]);
+                            const categoryMatch = text.match(/"categories":(\[[\s\S]*?\]),"artists":\[/);
+                            if (categoryMatch) {
+                                try {
+                                    const importedCategories = JSON.parse(categoryMatch[1]);
+                                    importedCategories.forEach(category => {
+                                        if (typeof category === 'string' && category && !state.categories.includes(category)) state.categories.push(category);
+                                    });
+                                } catch (_) {}
+                            }
+                            headerApplied = true;
+                        }
+                        await feed(text);
+                    }
+                    await feed(decoder.decode());
+                    actions.saveMeta();
+                    actions.saveCats();
+                    actions.savePresets();
+                    state.pageImages = {};
+                    renderAll();
+                    showToast(`导入完成! 新增 ${addedCount}，更新 ${updatedCount}，图片 ${importedImages} 张`);
+                };
+                if (file.size > 64 * 1024 * 1024 && file.stream && typeof TextDecoder !== 'undefined') {
+                    try { await importLargeBackup(file); } catch (error) { console.error(error); showToast(`导入失败：${error.message || error}`); }
+                    return;
+                }
+                const extractArrayObjects = (source, key) => {
+                    const marker = `"${key}"`;
+                    const markerIndex = source.indexOf(marker);
+                    if (markerIndex < 0) return [];
+                    const arrayStart = source.indexOf('[', markerIndex + marker.length);
+                    if (arrayStart < 0) return [];
+                    const result = [];
+                    let objectStart = -1;
+                    let depth = 0;
+                    let inString = false;
+                    let escaped = false;
+                    for (let i = arrayStart + 1; i < source.length; i++) {
+                        const ch = source[i];
+                        if (inString) {
+                            if (escaped) escaped = false;
+                            else if (ch === '\\') escaped = true;
+                            else if (ch === '"') inString = false;
+                            continue;
+                        }
+                        if (ch === '"') { inString = true; continue; }
+                        if (ch === '{') {
+                            if (depth === 0) objectStart = i;
+                            depth++;
+                        } else if (ch === '}' && depth > 0) {
+                            depth--;
+                            if (depth === 0 && objectStart >= 0) {
+                                try { result.push(JSON.parse(source.slice(objectStart, i + 1))); } catch (_) {}
+                                objectStart = -1;
+                            }
+                        } else if (ch === ']' && depth === 0) break;
+                    }
+                    return result;
+                };
                 const reader = new FileReader();
                 reader.onload = async(e) => {
                     try {
-                        const json = JSON.parse(e.target.result);
-                        const list = Array.isArray(json) ? json : (json.artists||[]);
-                        const presets = json.presets || [];
+                        let recovered = false;
+                        let json;
+                        try {
+                            json = JSON.parse(e.target.result);
+                        } catch (parseError) {
+                            const recoveredArtists = extractArrayObjects(e.target.result, 'artists');
+                            const recoveredPresets = extractArrayObjects(e.target.result, 'presets');
+                            if (!recoveredArtists.length && !recoveredPresets.length) throw parseError;
+                            json = { artists: recoveredArtists, presets: recoveredPresets };
+                            recovered = true;
+                            console.warn('Backup JSON was truncated; recovered complete records.', parseError);
+                        }
+                        const list = Array.isArray(json) ? json : (json && Array.isArray(json.artists) ? json.artists : []);
+                        const presets = json && Array.isArray(json.presets) ? json.presets : [];
+                        if (Array.isArray(json.categories)) {
+                            json.categories.forEach(category => {
+                                if (typeof category === 'string' && category && !state.categories.includes(category)) state.categories.push(category);
+                            });
+                        }
+                        if (json.theme === 'light' || json.theme === 'dark') actions.setTheme(json.theme);
                         showToast(`分析 ${list.length} 条数据...`);
                         
                         const existingTags = new Set(state.artists.map(a => a.tag.toLowerCase()));
                         const existingPresetNames = new Set(state.presets.map(p => p.name));
+                        const usedIds = new Set([...state.artists, ...state.presets].map(item => String(item.id)));
+                        const importedArtistIds = new Map();
+                        const allocateImportedId = (sourceId) => {
+                            const candidate = String(sourceId || '');
+                            if (/^[A-Za-z0-9._-]{1,160}$/.test(candidate) && !usedIds.has(candidate)) {
+                                usedIds.add(candidate);
+                                return candidate;
+                            }
+                            let generated;
+                            do { generated = String(Date.now() + Math.random()); } while (usedIds.has(generated));
+                            usedIds.add(generated);
+                            return generated;
+                        };
                         let addedCount = 0;
                         let updatedCount = 0;
 
                         for(const item of list) {
-                            let tag = item.tag || item.prompt || '';
-                            let name = item.name || '';
+                            let tag = String(item.tag || item.prompt || '');
+                            let name = String(item.name || '');
                             if(!tag && name) tag = name;
                             if(!name && tag) name = tag;
                             if(!tag) continue;
@@ -1103,14 +1665,14 @@
                             cats = [...new Set(cats)];
                             cats.forEach(c => { if(c !== '未分类' && !state.categories.includes(c)) state.categories.push(c); });
                             
-                            const img = item.imageUrl || item.image;
+                            const img = typeof item.imageUrl === 'string' ? item.imageUrl : (typeof item.image === 'string' ? item.image : '');
 
                             let existing = state.artists.find(a => a.tag.toLowerCase() === tag.toLowerCase());
                             if(existing) {
+                                if (item.id !== undefined && item.id !== null) importedArtistIds.set(String(item.id), String(existing.id));
                                 // 存在则更新合并属性
                                 if(img && img.startsWith('data:')) {
-                                    await db.put(existing.id, img);
-                                    state.pageImages[existing.id] = img;
+                                    state.pageImages[existing.id] = await db.put(existing.id, img);
                                 }
                                 if(item.danbooruCount !== undefined) existing.danbooruCount = parseInt(item.danbooruCount) || 0;
                                 if(Array.isArray(item.socialLinks)) existing.socialLinks = item.socialLinks;
@@ -1118,8 +1680,9 @@
                                 updatedCount++;
                             } else {
                                 // 不存在则新增
-                                let id = String(Date.now() + Math.random());
-                                if(img && img.startsWith('data:')) await db.put(id, img);
+                                let id = allocateImportedId(item.id);
+                                if (item.id !== undefined && item.id !== null) importedArtistIds.set(String(item.id), id);
+                                if(img && img.startsWith('data:')) state.pageImages[id] = await db.put(id, img);
                                 const artist = {
                                     id, name: name||'Unknown', tag,
                                     categories: cats,
@@ -1134,9 +1697,19 @@
                         
                         if(presets.length > 0) {
                             for(const p of presets) {
+                                if (!p || typeof p !== 'object') continue;
                                 if(!existingPresetNames.has(p.name)) {
-                                    let pid = String(Date.now() + Math.random());
-                                    state.presets.push({ ...p, id: pid }); 
+                                    const pid = allocateImportedId(p.id);
+                                    const presetImage = typeof p.imageUrl === 'string' ? p.imageUrl : (typeof p.image === 'string' ? p.image : '');
+                                    if (presetImage.startsWith('data:')) {
+                                        state.pageImages[pid] = await db.put(pid, presetImage);
+                                    }
+                                    const { imageUrl, image, ...presetMeta } = p;
+                                    const remappedItems = Array.isArray(p.items) ? p.items.map(presetItem => ({
+                                        ...presetItem,
+                                        id: importedArtistIds.get(String(presetItem.id)) || String(presetItem.id)
+                                    })) : [];
+                                    state.presets.push({ ...presetMeta, id: pid, items: remappedItems });
                                     existingPresetNames.add(p.name);
                                 }
                             }
@@ -1147,25 +1720,155 @@
                         actions.saveCats();
                         state.pageImages = {}; 
                         renderAll();
-                        showToast(`导入完成! 新增 ${addedCount}，更新 ${updatedCount}`);
-                    } catch(err) { console.error(err); showToast("导入失败"); }
+                        showToast(recovered
+                            ? `备份尾部不完整，已恢复 ${addedCount} 条画师、${updatedCount} 条更新`
+                            : `导入完成! 新增 ${addedCount}，更新 ${updatedCount}`);
+                    } catch(err) {
+                        console.error(err);
+                        const reason = err instanceof Error && err.message ? err.message : String(err || '未知错误');
+                        showToast(`导入失败：${reason.slice(0, 36)}`);
+                    }
                 };
                 reader.readAsText(file);
             },
             
             exportData: async () => {
+                if (state.exportRunning) return;
+                state.exportRunning = true;
                 showToast("打包中...");
-                const data = [];
-                for(const a of state.artists) {
-                    const img = await db.get(a.id);
-                    data.push({...a, imageUrl: img||''});
+                try {
+                    if (localArchive.available) {
+                        await localArchive.flush();
+                        const link = document.createElement('a');
+                        link.href = `/api/export?t=${Date.now()}`;
+                        link.rel = 'noopener';
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        showToast('本地服务正在生成 ZIP；图片不会进入浏览器内存');
+                        return;
+                    }
+                    const exportedAt = new Date().toISOString();
+                    const artists = state.artists.filter(artist => artist && typeof artist === 'object');
+                    const presets = state.presets.filter(preset => preset && typeof preset === 'object');
+                    const imageToDataUrl = async (value) => {
+                        if (typeof value === 'string') return value;
+                        if (!value || typeof FileReader === 'undefined' || typeof Blob === 'undefined' || !(value instanceof Blob)) return '';
+                        return await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+                            reader.onerror = () => resolve('');
+                            reader.readAsDataURL(value);
+                        });
+                    };
+                    const readImageForExport = async (id, fallback) => {
+                        const key = String(id);
+                        let image = await imageToDataUrl(state.pageImages[key]);
+                        if (!image) image = await imageToDataUrl(fallback);
+                        if (!image) {
+                            image = await imageToDataUrl(await db.get(key));
+                            if (!image && db.lastError) throw db.lastError;
+                        }
+                        if (image) state.pageImages[key] = image;
+                        return image;
+                    };
+                    const buildExport = async () => {
+                        const data = [];
+                        const imageErrors = [];
+                        let imageCount = 0;
+                        for (const artist of artists) {
+                            let imageUrl = '';
+                            try {
+                                imageUrl = await readImageForExport(artist.id, artist.imageUrl);
+                                if (imageUrl) imageCount++;
+                            } catch (error) {
+                                imageErrors.push({ type: 'artist', id: String(artist.id), error });
+                                console.warn('Skipping artist image during export:', artist.id, error);
+                            }
+                            data.push({ ...artist, imageUrl });
+                        }
+                        const exportedPresets = [];
+                        for (const preset of presets) {
+                            let imageUrl = '';
+                            try {
+                                imageUrl = await readImageForExport(preset.id, preset.imageUrl);
+                                if (imageUrl) imageCount++;
+                            } catch (error) {
+                                imageErrors.push({ type: 'preset', id: String(preset.id), error });
+                                console.warn('Skipping preset image during export:', preset.id, error);
+                            }
+                            exportedPresets.push({
+                                ...preset,
+                                items: Array.isArray(preset.items) ? preset.items : [],
+                                imageUrl
+                            });
+                        }
+                        return {
+                            version: 13,
+                            exportComplete: true,
+                            exportedAt,
+                            imagesIncluded: imageCount > 0,
+                            imageCount,
+                            imageErrors: imageErrors.map(item => ({ type: item.type, id: item.id })),
+                            theme: state.theme,
+                            categories: Array.isArray(state.categories) ? [...state.categories] : [],
+                            artists: data,
+                            presets: exportedPresets
+                        };
+                    };
+                    const downloadExport = (exportObj) => {
+                        const replacer = (_key, value) => typeof value === 'bigint' ? String(value) : value;
+                        const { artists = [], presets = [], ...metadata } = exportObj;
+                        const metadataJson = JSON.stringify(metadata, replacer);
+                        const parts = [metadataJson.slice(0, -1), ',"artists":['];
+                        artists.forEach((artist, index) => {
+                            if (index > 0) parts.push(',');
+                            parts.push(JSON.stringify(artist, replacer));
+                        });
+                        parts.push('],"presets":[');
+                        presets.forEach((preset, index) => {
+                            if (index > 0) parts.push(',');
+                            parts.push(JSON.stringify(preset, replacer));
+                        });
+                        parts.push(']}');
+                        const blob = new Blob(parts, { type: "application/json;charset=utf-8" });
+                        if (typeof URL.createObjectURL !== 'function') throw new Error('当前浏览器不支持大文件下载');
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        const now = new Date();
+                        const localDate = [
+                            now.getFullYear(),
+                            String(now.getMonth() + 1).padStart(2, '0'),
+                            String(now.getDate()).padStart(2, '0')
+                        ].join('-');
+                        link.download = `artist_manager_backup_${localDate}.json`;
+                        link.rel = 'noopener';
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                        // Large backups may still be streaming to the download manager after the click.
+                        // Keep the object URL alive long enough to prevent a truncated JSON file.
+                        if (url.startsWith('blob:')) window.setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+                        return exportObj;
+                    };
+
+                    const exportObj = await buildExport();
+                    const failedImages = Array.isArray(exportObj.imageErrors) ? exportObj.imageErrors.length : 0;
+                    if (failedImages > 0) {
+                        exportObj.warning = `有 ${failedImages} 张图片读取失败，其余图片已写入备份；请在浏览器存储仍可访问时重新导出。`;
+                    }
+                    downloadExport(exportObj);
+                    showToast(failedImages > 0
+                        ? `导出完成：${exportObj.artists.length} 位画师，${exportObj.imageCount || 0} 张图片（${failedImages} 张失败）`
+                        : `导出完成：${exportObj.artists.length} 位画师，${exportObj.imageCount || 0} 张图片`);
+                } catch (error) {
+                    console.error('Export failed:', error);
+                    const reason = error instanceof Error && error.message ? error.message : String(error || '未知错误');
+                    showToast(`导出失败：${reason.slice(0, 28)}`);
+                } finally {
+                    state.exportRunning = false;
                 }
-                const exportObj = { version: 12, artists: data, presets: state.presets };
-                const blob = new Blob([JSON.stringify(exportObj)], {type:"application/json"});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `artist_manager_backup_${new Date().toISOString().slice(0,10)}.json`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
             },
 
             openDanbooruUpdate: () => {
@@ -1203,8 +1906,7 @@
                 const id = state.editingId ? String(state.editingId) : String(Date.now());
                 
                 if(imageUrl && imageUrl.startsWith('data:')) {
-                    await db.put(id, imageUrl);
-                    state.pageImages[id] = imageUrl;
+                    state.pageImages[id] = await db.put(id, imageUrl);
                 }
                 
                 let finalCats = categories && categories.length > 0 ? categories : ['未分类'];
@@ -1358,6 +2060,66 @@
             }
 
             return results;
+        };
+
+        const refreshComposerImageFlags = (items, imageKey) => {
+            if (!items.length) {
+                state.composerImageFlagsReady = true;
+                state.composerHasMissingImages = false;
+                return;
+            }
+            Promise.all(items.map(async (artist) => {
+                const id = String(artist.id);
+                let image = state.pageImages[id];
+                if (!image) image = await db.get(id);
+                if (image) state.pageImages[id] = image;
+                return Boolean(image);
+            })).then((flags) => {
+                if (state.composerImageKey !== imageKey) return;
+                state.composerHasMissingImages = flags.some((hasImage) => !hasImage);
+                state.composerImageFlagsReady = true;
+                renderSidebarRight();
+            });
+        };
+
+        const sendPromptToNaiBatch = async (text) => {
+            const parsed = parsePromptInput(text);
+            if (parsed.length === 0) return showToast('未检测到有效的画师标签');
+            const category = state.currentCategory || '未分类';
+            const targetCategory = category === '全部' ? '未分类' : category;
+            const selectedIds = [];
+            let addedCount = 0;
+            for (const item of parsed) {
+                const needle = item.tag.toLowerCase().trim();
+                const findArtist = (q) => state.artists.find(a => !a._ghost && a.tag && (() => {
+                    const dbTag = (a.tag || '').toLowerCase().trim();
+                    const dbName = (a.name || '').toLowerCase().trim();
+                    return dbTag === q || dbName === q || dbTag.replace(/^artist:\s*/, '') === q;
+                })());
+                let artist = findArtist(needle) || findArtist('artist:' + needle);
+                if (!artist) {
+                    const id = String(Date.now() + Math.random());
+                    artist = { id, name: item.tag, tag: item.tag, categories: [targetCategory], danbooruCount: 0, socialLinks: [], createdAt: Date.now() };
+                    state.artists.push(artist);
+                    addedCount++;
+                }
+                let image = state.pageImages[String(artist.id)];
+                if (!image) image = await db.get(artist.id);
+                if (image) state.pageImages[String(artist.id)] = image;
+                if (!image) {
+                    artist.categories = Array.isArray(artist.categories) ? artist.categories : ['未分类'];
+                    if (!artist.categories.includes(targetCategory)) artist.categories.push(targetCategory);
+                    selectedIds.push(String(artist.id));
+                }
+            }
+            state.artists = state.artists.filter((artist) => !artist._ghost);
+            actions.saveMeta();
+            actions.saveCats();
+            renderAll();
+            if (!selectedIds.length) return showToast('当前画师串中的画师都已有例图');
+            showToast(`已准备 ${selectedIds.length} 位无例图画师，新增 ${addedCount} 位`);
+            if (window.NAIBatchPlugin?.open) window.NAIBatchPlugin.open({ selectedIds });
+            else showToast('批量生图插件尚未加载');
         };
 
         const importFromPromptText = (text) => {
@@ -1750,6 +2512,10 @@
                         <button onclick="actions.setViewMode('artists')" class="flex-1 py-1.5 text-xs transition-all ${!isPresetMode ? 'is-active' : ''}">画师</button>
                         <button onclick="actions.setViewMode('presets')" class="flex-1 py-1.5 text-xs transition-all ${isPresetMode ? 'is-active' : ''}">预设</button>
                     </div>
+                    <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                        <span>${localArchive.available ? `本地存档 · data/ · ${localArchive.imageCount} 图` : '浏览器存档 · 启动 run_server.py 可迁移'}</span>
+                        ${localArchive.available && localArchive.initialized ? '<button onclick="actions.releaseBrowserImages()" class="hover:text-red-500 whitespace-nowrap">释放旧缓存</button>' : ''}
+                    </div>
                     ${!isPresetMode ? `
                         <button onclick="actions.toggleSort()" class="sidebar-tool w-full py-2 px-3 flex items-center justify-between text-sm font-medium transition-colors">
                             <div class="flex items-center gap-2"><i data-lucide="${state.sortMode==='default'?'clock':state.sortMode==='alpha'?'arrow-up-az':'flame'}" class="w-4 h-4"></i><span>${state.sortMode==='default'?'默认':state.sortMode==='alpha'?'名称':'热度'}</span></div>
@@ -1758,9 +2524,10 @@
                         <div class="flex gap-2">
                             <button onclick="document.getElementById('file-in').click()" class="sidebar-secondary flex-1 py-2 text-xs font-medium">导入</button>
                             <button onclick="actions.exportData()" class="sidebar-secondary flex-1 py-2 text-xs font-medium">导出</button>
-                            <input type="file" id="file-in" class="hidden" accept=".json" onchange="actions.importData(this.files[0]);this.value=''">
+                            <input type="file" id="file-in" class="hidden" accept=".json,.zip" onchange="actions.importData(this.files[0]);this.value=''">
                         </div>
                         <button onclick="actions.openDanbooruUpdate()" class="sidebar-primary w-full py-2 text-xs font-medium transition-all flex items-center justify-center gap-1.5 active:scale-[0.97]"><i data-lucide="arrow-clockwise" class="w-3.5 h-3.5"></i> 更新数据</button>
+                        <button onclick="window.NAIBatchPlugin?.open()" class="sidebar-secondary w-full py-2 text-xs font-medium transition-all flex items-center justify-center gap-1.5"><i data-lucide="wand-2" class="w-3.5 h-3.5"></i> NAI 批量更新</button>
                     ` : ''}
                 </div>
                 ${!isPresetMode ? `
@@ -1835,74 +2602,10 @@
         };
         const renderBatchBar = () => renderMainHeader();
 
-        let responsiveGridObserver = null;
-        let responsiveGridFrame = 0;
-
-        const calculateResponsivePageSize = (container) => {
-            if (!container) return state.pageSize || 24;
-
-            const containerStyle = getComputedStyle(container);
-            const rootSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-            const horizontalPadding = (Number.parseFloat(containerStyle.paddingLeft) || 0) + (Number.parseFloat(containerStyle.paddingRight) || 0);
-            const verticalPadding = (Number.parseFloat(containerStyle.paddingTop) || 0) + (Number.parseFloat(containerStyle.paddingBottom) || 0);
-            const availableWidth = Math.max(1, container.clientWidth - horizontalPadding);
-            const availableHeight = Math.max(1, container.clientHeight - verticalPadding - rootSize * .5);
-            const gap = rootSize * .75;
-            const minCardWidth = rootSize * 9.75;
-
-            let columns;
-            if (window.matchMedia('(max-width: 480px)').matches) columns = 1;
-            else if (window.matchMedia('(max-width: 768px)').matches) columns = 2;
-            else columns = Math.max(1, Math.floor((availableWidth + gap) / (minCardWidth + gap)));
-
-            const cardWidth = Math.max(1, (availableWidth - gap * (columns - 1)) / columns);
-            const imageHeight = state.viewMode === 'presets' ? cardWidth * 9 / 16 : cardWidth * 4 / 3;
-            const infoHeight = state.viewMode === 'presets' ? 76 : 64;
-            const cardHeight = imageHeight + infoHeight + 2;
-            const rows = Math.max(1, Math.ceil((availableHeight + gap) / (cardHeight + gap)));
-
-            return Math.max(1, columns * rows);
-        };
-
-        const syncResponsivePageSize = () => {
-            const container = document.getElementById('grid-container');
-            if (!container) return false;
-
-            const nextPageSize = calculateResponsivePageSize(container);
-            if (nextPageSize === state.pageSize) return false;
-
-            const firstVisibleIndex = Math.max(0, (state.page - 1) * state.pageSize);
-            state.pageSize = nextPageSize;
-            state.page = Math.floor(firstVisibleIndex / nextPageSize) + 1;
-            return true;
-        };
-
-        const scheduleResponsiveGrid = () => {
-            cancelAnimationFrame(responsiveGridFrame);
-            responsiveGridFrame = requestAnimationFrame(() => {
-                responsiveGridFrame = 0;
-                if (syncResponsivePageSize()) renderGrid();
-            });
-        };
-
-        const initResponsivePagination = () => {
-            responsiveGridObserver?.disconnect();
-            const container = document.getElementById('grid-container');
-            if (!container) return;
-
-            responsiveGridObserver = new ResizeObserver(scheduleResponsiveGrid);
-            responsiveGridObserver.observe(container);
-            window.addEventListener('resize', scheduleResponsiveGrid, { passive: true });
-            window.visualViewport?.addEventListener('resize', scheduleResponsiveGrid, { passive: true });
-        };
-
         const renderGrid = () => {
             const container = document.getElementById('grid-container');
             const footer = document.getElementById('pagination-container');
             if(!container || !footer) return;
-
-            syncResponsivePageSize();
-            container.dataset.pageSize = String(state.pageSize);
 
             const list = getFilteredList();
             const totalPage = Math.ceil(list.length / state.pageSize) || 1;
@@ -1912,13 +2615,15 @@
                                     state._prevCategory !== state.currentCategory || 
                                     state._prevMode !== state.viewMode || 
                                     state._prevSearch !== state.searchQuery ||
-                                    state._prevSort !== state.sortMode;
+                                    state._prevSort !== state.sortMode ||
+                                    state._prevPageSize !== state.pageSize;
                                     
             state._prevPage = state.page;
             state._prevCategory = state.currentCategory;
             state._prevMode = state.viewMode;
             state._prevSearch = state.searchQuery;
             state._prevSort = state.sortMode;
+            state._prevPageSize = state.pageSize;
 
             // Save scroll position before re-render, zero out if filter/page changed
             const savedGridScrollTop = isFilterChanged ? 0 : container.scrollTop;
@@ -1934,7 +2639,7 @@
                         return `
                         <div onclick="actions.toggleCardClick('${id}')" class="group glass-card spotlight-card rounded-2xl overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all relative">
                             <div class="aspect-[16/9] bg-slate-200 dark:bg-slate-800 relative">
-                                <img id="img-${id}" class="w-full h-full object-cover transition-opacity duration-500 opacity-0">
+                                <img id="img-${id}" class="w-full h-full object-cover transition-opacity duration-500 opacity-0" loading="eager" decoding="async">
                                 <div class="absolute inset-0 flex items-center justify-center text-slate-300 -z-10"><i data-lucide="image" class="w-8 h-8"></i></div>
                                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-center items-center gap-2 backdrop-blur-sm">
                                     <button onclick="event.stopPropagation();actions.openEditPreset('${id}')" class="bg-white text-slate-800 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-indigo-50 hover:text-indigo-600 transition-colors flex items-center gap-1"><i data-lucide="edit-2" class="w-3 h-3"></i> 编辑</button>
@@ -1963,8 +2668,8 @@
                         const activeClass = state.batchMode ? (isBatchSel ? 'batch-selected' : '') : (isSel ? 'card-selected' : '');
                         return `
                         <div id="card-${id}" onclick="actions.toggleCardClick('${id}')" class="group glass-card spotlight-card rounded-2xl overflow-hidden cursor-pointer relative hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ${activeClass}">
-                            <div class="aspect-[3/4] bg-slate-200 dark:bg-slate-800 relative">
-                                <img id="img-${id}" class="w-full h-full object-cover transition-opacity duration-500 opacity-0" loading="lazy">
+                            <div class="artist-card-media bg-slate-200 dark:bg-slate-800">
+                                <img id="img-${id}" class="artist-card-image transition-opacity duration-500 opacity-0" loading="eager" decoding="async">
                                 <div class="absolute inset-0 flex items-center justify-center text-slate-300 -z-10"><i data-lucide="image" class="w-8 h-8"></i></div>
                                 <div class="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-md flex items-center gap-1 z-20 font-bold"><i data-lucide="flame" class="w-3 h-3 text-orange-400"></i> ${a.danbooruCount||0}</div>
                                 ${!state.batchMode ? `<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 z-10">
@@ -1993,6 +2698,7 @@
             container.scrollTop = savedGridScrollTop;
             lucide.createIcons(container);
             lucide.createIcons(footer);
+            scheduleThumbnailWarmup(list, pageItems);
         };
 
         const updateCardVisual = (id) => {
@@ -2009,22 +2715,53 @@
         };
 
         const injectImages = async (items) => {
-            const idsNeeded = items.filter(a => !state.pageImages[a.id]).map(a => a.id);
+            const idsNeeded = items.map(a => String(a.id)).filter(id => !state.thumbnailImages[id]);
             items.forEach(a => {
-                const el = document.getElementById(`img-${a.id}`);
-                const cache = state.pageImages[a.id];
+                const id = String(a.id);
+                const el = document.getElementById(`img-${id}`);
+                const cache = state.thumbnailImages[id];
                 if(el && cache) { el.src=cache; el.classList.remove('opacity-0'); }
             });
-            if(idsNeeded.length>0) {
-                for(const id of idsNeeded) {
-                    const img = await db.get(id);
+            if (idsNeeded.length > 0) {
+                await Promise.allSettled(idsNeeded.map(async id => {
+                    const img = await db.get(id, { thumbnail: true });
                     if(img) {
-                        state.pageImages[id] = img;
+                        state.thumbnailImages[id] = img;
                         const el = document.getElementById(`img-${id}`);
                         if(el) { el.src=img; el.classList.remove('opacity-0'); }
                     }
-                }
+                }));
             }
+        };
+
+        const preloadThumbnailUrl = (url) => new Promise(resolve => {
+            const image = new Image();
+            image.decoding = 'async';
+            image.onload = image.onerror = () => resolve();
+            image.src = url;
+        });
+
+        const scheduleThumbnailWarmup = (list, pageItems) => {
+            if (!localArchive.available || !localArchive.imageIndexReady) return;
+            const currentIds = new Set(pageItems.map(item => String(item.id)));
+            const pageEnd = state.page * state.pageSize;
+            const ordered = [...list.slice(pageEnd), ...list.slice(0, Math.max(0, pageEnd - state.pageSize))]
+                .filter(item => !currentIds.has(String(item.id)));
+            const token = ++state.thumbnailWarmupToken;
+            setTimeout(async () => {
+                const batchSize = 16;
+                for (let offset = 0; offset < ordered.length && token === state.thumbnailWarmupToken; offset += batchSize) {
+                    const urls = [];
+                    for (const item of ordered.slice(offset, offset + batchSize)) {
+                        const id = String(item.id);
+                        if (state.preloadedThumbnailIds.has(id) || !localArchive.imageIndex.has(id)) continue;
+                        state.preloadedThumbnailIds.add(id);
+                        urls.push(localArchive.imageUrl(id, localArchive.imageIndex.get(id), true));
+                    }
+                    if (urls.length) await Promise.allSettled(urls.map(preloadThumbnailUrl));
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            }, 0);
         };
 
         // =========================================
@@ -2264,13 +3001,21 @@
             }).join(', ');
             const isWebui = state.promptFormat === 'webui';
             const totalWeight = items.reduce((s, a) => s + (state.selected[String(a.id)] || 1), 0);
+            const composerImageKey = items.map((artist) => `${String(artist.id)}:${state.pageImages[String(artist.id)] ? '1' : '0'}`).join('|');
+            if (state.composerImageKey !== composerImageKey) {
+                state.composerImageKey = composerImageKey;
+                state.composerImageFlagsReady = !items.length;
+                state.composerHasMissingImages = false;
+                refreshComposerImageFlags(items, composerImageKey);
+            }
+            const showSendToBatch = state.composerImageFlagsReady && state.composerHasMissingImages;
 
             container.innerHTML = `
                 <div class="p-5 border-b border-slate-200/50 dark:border-slate-700/50 flex justify-between items-center"><h2 class="dark:text-white flex items-center gap-2"><i data-lucide="wand-2" class="w-4 h-4"></i> Prompt 编排</h2><div class="flex items-center gap-2"><span class="bg-indigo-100 text-indigo-600 text-xs font-semibold px-2 py-1 rounded-full">${items.length}</span><button onclick="closeToolPanels()" class="panel-close" aria-label="关闭 Prompt 编排"><i data-lucide="x" class="w-4 h-4"></i></button></div></div>
                 ${items.length > 0 ? `<div class="px-4 py-3 border-b border-slate-200/50 dark:border-slate-700/50 pie-canvas-wrap"><canvas id="pie-chart-cv" style="width:100%;height:180px;display:block;cursor:pointer"></canvas></div>` : ''}
                 <div class="px-5 py-3 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between"><span class="text-xs font-medium text-slate-500">输出格式</span><div class="format-switch flex bg-slate-200 dark:bg-slate-700 p-1 w-32 relative cursor-pointer" role="button" tabindex="0" aria-label="切换 Prompt 格式" onclick="state.promptFormat=state.promptFormat==='webui'?'novelai':'webui';renderSidebarRight()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><div class="absolute inset-y-1 w-[calc(50%-4px)] bg-white dark:bg-indigo-500 shadow-sm capsule-bg" style="left: ${isWebui?'4px':'calc(50%)'}"></div><div class="flex-1 text-[10px] font-semibold text-center z-10 py-1 ${isWebui?'format-active':'format-inactive'}">SDXL</div><div class="flex-1 text-[10px] font-semibold text-center z-10 py-1 ${!isWebui?'format-active':'format-inactive'}">NAI</div></div></div>
                 <div class="flex-1 overflow-y-auto p-5 space-y-2 custom-scrollbar" id="right-artist-list-scroll">${items.length === 0 ? `<div class="text-center text-slate-400 py-10"><i data-lucide="clipboard-paste" class="w-10 h-10 mx-auto mb-3 opacity-30"></i><p>点击左侧卡片选择画师</p><p class="text-xs mt-1 opacity-60">或在下方文本框粘贴画师串导入</p></div>` : items.map((a, idx) => { const id = String(a.id); const w = state.selected[id]; const pct = totalWeight > 0 ? ((w/totalWeight)*100).toFixed(1) : '0'; const color = PIE_COLORS[idx % PIE_COLORS.length]; const isFirst = idx === 0; const isLast = idx === items.length - 1; const isGhost = !!a._ghost; return `<div class="flex items-center gap-1 group bg-white/50 dark:bg-slate-800/50 p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all artist-hover-row artist-drag-item ${isGhost ? 'ghost-artist' : ''}" data-artist-id="${id}" data-artist-idx="${idx}" draggable="true"><div class="flex flex-col gap-0.5 flex-shrink-0 mr-1"><button onclick="event.stopPropagation();moveSelectedArtist(${idx},${idx-1})" class="artist-move-btn" ${isFirst?'disabled':''}><i data-lucide="chevron-up" class="w-3 h-3"></i></button><button onclick="event.stopPropagation();moveSelectedArtist(${idx},${idx+1})" class="artist-move-btn" ${isLast?'disabled':''}><i data-lucide="chevron-down" class="w-3 h-3"></i></button></div><div class="flex items-center flex-1 min-w-0 cursor-default" ${!isGhost ? `onmouseenter="showArtistPreview('${id}',event)" onmousemove="movePreviewTooltip(event)" onmouseleave="hideArtistPreview()"` : ''}><div class="w-3 h-3 rounded-full flex-shrink-0 mr-2" style="background:${isGhost ? '#94a3b8' : color};box-shadow:0 0 6px ${isGhost ? '#94a3b860' : color+'60'}"></div><div class="flex-1 min-w-0 pr-2"><div class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">${a.name}${isGhost ? '<span class="ghost-badge"><i data-lucide="help-circle" class="w-3 h-3"></i>未匹配</span>' : ''}</div><div class="text-xs text-slate-400 truncate font-mono mt-0.5">${a.tag} <span style="color:${isGhost ? '#94a3b8' : color};font-weight:700">${pct}%</span></div></div></div><div class="flex items-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1 shadow-sm"><button onclick="state.selected['${id}']=(state.selected['${id}']-0.1)||0.1;renderSidebarRight()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-indigo-600"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button><span class="text-xs font-mono w-8 text-center font-bold dark:text-white">${w.toFixed(1)}</span><button onclick="state.selected['${id}']=(state.selected['${id}']+0.1)||0.1;renderSidebarRight()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-indigo-600"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button></div><button onclick="delete state.selected['${id}'];state.selectedOrder=state.selectedOrder.filter(x=>x!=='${id}');if('${id}'.startsWith('_ghost_')){state.artists=state.artists.filter(a=>String(a.id)!=='${id}');}hideArtistPreview();updateCardVisual('${id}');renderSidebarRight()" class="ml-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg p-1 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button></div>`}).join('')}</div>
-                <div class="p-5 border-t border-slate-200/50 dark:border-slate-700/50 space-y-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md"><textarea id="res-box" class="w-full h-24 text-sm p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none dark:text-slate-300 shadow-inner" placeholder="粘贴画师串到此处导入，或由选择自动生成...">${prompt}</textarea><div class="flex gap-2"><button onclick="const box=document.getElementById('res-box');importFromPromptText(box.value)" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/30 flex items-center justify-center gap-1 import-prompt-btn"><i data-lucide="clipboard-paste" class="w-4 h-4"></i> 导入串</button><button onclick="actions.openAddPresetModal()" class="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-green-500/30 flex items-center justify-center gap-1"><i data-lucide="save" class="w-4 h-4"></i> 存预设</button><button onclick="document.getElementById('res-box').select();document.execCommand('copy');showToast('咒语已复制')" class="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"><i data-lucide="copy" class="w-4 h-4"></i> 复制</button><button onclick="state.selected={};state.selectedOrder=[];state.artists=state.artists.filter(a=>!a._ghost);renderGrid();renderSidebarRight()" class="p-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div></div>`;
+                <div class="p-5 border-t border-slate-200/50 dark:bg-slate-900/60 space-y-3 bg-white/60 backdrop-blur-md"><textarea id="res-box" class="w-full h-24 text-sm p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none dark:text-slate-300 shadow-inner" placeholder="粘贴画师串到此处导入，或由选择自动生成...">${prompt}</textarea><div class="flex gap-2"><button onclick="const box=document.getElementById('res-box');importFromPromptText(box.value)" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/30 flex items-center justify-center gap-1 import-prompt-btn"><i data-lucide="clipboard-paste" class="w-4 h-4"></i> 导入串</button><button onclick="actions.openAddPresetModal()" class="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-green-500/30 flex items-center justify-center gap-1"><i data-lucide="save" class="w-4 h-4"></i> 存预设</button><button onclick="document.getElementById('res-box').select();document.execCommand('copy');showToast('咒语已复制')" class="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"><i data-lucide="copy" class="w-4 h-4"></i> 复制</button>${showSendToBatch ? '<button onclick="sendPromptToNaiBatch(document.getElementById(\'res-box\').value)" class="flex-[1.15] bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-1"><i data-lucide="wand-2" class="w-4 h-4"></i> 送到生图区</button>' : ''}<button onclick="state.selected={};state.selectedOrder=[];state.artists=state.artists.filter(a=>!a._ghost);renderGrid();renderSidebarRight()" class="p-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"><i data-lucide="trash-2" class="w-5 h-5"></i></button></div></div>`;
             // Restore scroll position of the artist list after re-render
             const newArtistListEl = document.getElementById('right-artist-list-scroll');
             if (newArtistListEl) {
@@ -2495,7 +3240,15 @@
 
         actions.init();
         initOriginButtons();
+        window.addEventListener('pagehide', () => {
+            if (!localArchive.available || localArchive.suspendWrites || !navigator.sendBeacon) return;
+            try {
+                const payload = new Blob([JSON.stringify(localArchive.snapshot())], { type: 'application/json' });
+                navigator.sendBeacon('/api/save-meta', payload);
+            } catch (_) {}
+        });
 
     </script>
+    <script src="plugins/nai-batch-updater.js"></script>
 </body>
 </html>
