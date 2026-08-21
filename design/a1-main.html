@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>白栈整备终端 — A1 主界面设计稿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Chakra+Petch:wght@500;600&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   白栈整备终端 / WHITESTACK TERMINAL — SHEET A1
+   浅色工业机能风 · 方舟黄单点强调 · 内容图为唯一色彩源
+   ============================================================ */
+:root {
+    --bg-base:  #F2F2EE;
+    --bg-raise: #FAFAF7;
+    --bg-sunk:  #E6E6E0;
+    --ink-1: #16150F;
+    --ink-2: #57564C;
+    --ink-3: #9C9B8F;
+    --line-hard: #16150F;
+    --line-hair: #D9D8CE;
+    --ark:      #F7C600;
+    --ark-deep: #D9A400;
+    --ark-wash: rgba(247,198,0,.16);
+    --ark-ink:  #16150F;
+    --ok:   #4E7A5A;
+    --warn: #A8702C;
+    --err:  #A8453A;
+    --info: #546E7A;
+    --font-display: "Barlow Condensed","Noto Sans SC","MiSans","PingFang SC","Microsoft YaHei",sans-serif;
+    --font-hud: "Chakra Petch","Noto Sans SC","MiSans","PingFang SC","Microsoft YaHei",sans-serif;
+    --font-body: "Noto Sans SC","MiSans","PingFang SC","Microsoft YaHei",sans-serif;
+    --font-mono: "JetBrains Mono","Cascadia Mono",Consolas,monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; border-radius: 0 !important; }
+html, body { height: 100%; overflow: hidden; }
+body {
+    background: #DEDED7;
+    font-family: var(--font-body);
+    color: var(--ink-1);
+    display: flex; align-items: center; justify-content: center;
+}
+button { font-family: inherit; background: none; border: none; cursor: pointer; color: inherit; }
+input, select, textarea { font-family: inherit; color: inherit; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--ink-3); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- 舞台 ---------- */
+#stage-shell { position: relative; overflow: hidden; }
+#stage {
+    position: absolute; inset: 0 auto auto 0;
+    width: 1600px; height: 1000px;
+    transform-origin: top left;
+    display: grid; grid-template-columns: 232px 1fr 348px;
+    background: var(--bg-base);
+    overflow: hidden;
+}
+
+/* ---------- 通用 HUD ---------- */
+.hud {
+    font-family: var(--font-hud); font-weight: 600; font-size: 9px;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3);
+}
+.mono { font-family: var(--font-mono); }
+.ic { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ic svg { display: block; }
+
+/* ============================================================
+   左栏 INDEX
+   ============================================================ */
+.index-col {
+    border-right: 1px solid var(--line-hard);
+    display: flex; flex-direction: column;
+    background: var(--bg-base);
+    min-height: 0;
+}
+.brand { padding: 16px 20px 14px; display: flex; align-items: center; gap: 12px; }
+.brand-mark {
+    width: 40px; height: 40px; background: var(--ink-1); color: #FAFAF7;
+    font-family: var(--font-display); font-weight: 700; font-size: 20px;
+    display: flex; align-items: center; justify-content: center; letter-spacing: .02em;
+}
+.brand-name { font-size: 15px; font-weight: 700; line-height: 1.25; }
+.brand-sub { margin-top: 2px; }
+.brand-side { margin-left: auto; color: var(--ink-3); font-family: var(--font-mono); font-size: 9px; text-align: right; line-height: 1.6; }
+.brand-side b { color: var(--ink-2); font-weight: 500; }
+
+/* 【Y1】警戒带 —— 全稿唯一一条 */
+.tape {
+    height: 6px; flex-shrink: 0;
+    background: repeating-linear-gradient(-45deg, var(--ink-1) 0 6px, var(--ark) 6px 12px);
+}
+
+.col-body { padding: 16px 20px 12px; display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0; }
+
+.tabs { display: flex; border: 1px solid var(--line-hard); }
+.tab {
+    flex: 1; height: 34px; font-family: var(--font-hud); font-weight: 600; font-size: 12px;
+    color: var(--ink-2); background: transparent; transition: background .12s, color .12s;
+}
+.tab + .tab { border-left: 1px solid var(--line-hard); }
+.tab:hover:not(.active) { text-decoration: underline; text-underline-offset: 3px; color: var(--ink-1); }
+.tab.active { background: var(--ink-1); color: #FAFAF7; }
+
+.sort-row { display: flex; align-items: center; gap: 10px; }
+.sort-row .hud { flex-shrink: 0; }
+.select-wrap { position: relative; flex: 1; }
+.select-wrap select {
+    width: 100%; height: 30px; appearance: none; -webkit-appearance: none;
+    background: transparent; border: 1px solid var(--line-hard);
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink-1);
+    padding: 0 26px 0 10px; cursor: pointer; outline: none;
+}
+.select-wrap .ic { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--ink-2); }
+
+.data-btns { display: flex; flex-direction: column; gap: 8px; }
+.data-btn {
+    height: 34px; border: 1px solid var(--line-hard); background: transparent;
+    display: flex; align-items: center; gap: 10px; padding: 0 12px;
+    font-family: var(--font-hud); font-weight: 600; font-size: 12px; color: var(--ink-1);
+    transition: background .12s, color .12s;
+}
+.data-btn .ic { color: var(--ink-2); }
+.data-btn:hover { background: var(--ink-1); color: #FAFAF7; }
+.data-btn:hover .ic { color: #FAFAF7; }
+.data-btn .tail { margin-left: auto; font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); font-weight: 400; }
+.data-btn:hover .tail { color: var(--ink-3); }
+
+.filter-head {
+    display: flex; align-items: baseline; border-top: 1px solid var(--line-hard); padding-top: 12px;
+}
+.filter-head .hud { color: var(--ink-2); }
+.filter-head .total { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); }
+
+.cat-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -20px; padding: 0 20px; }
+.cat-row {
+    height: 36px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--line-hair);
+    font-size: 13px; color: var(--ink-1); cursor: pointer; position: relative;
+    transition: background .12s;
+}
+.cat-row .idx { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); width: 16px; }
+.cat-row .cnt { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink-2); }
+.cat-row:hover { background: var(--bg-sunk); }
+.cat-row:hover .name { text-decoration: underline; text-underline-offset: 3px; }
+/* 【Y2】当前分类 —— 4px 黄方块，不整行染色 */
+.cat-row.active::before {
+    content: ''; position: absolute; left: -20px; top: 0; bottom: 0; width: 4px; background: var(--ark);
+}
+.cat-row.active .name { font-weight: 700; }
+.cat-row.active .cnt { color: var(--ink-1); font-weight: 700; }
+
+.new-cat {
+    height: 34px; border: 1px dashed var(--ink-3); color: var(--ink-2);
+    font-family: var(--font-hud); font-weight: 500; font-size: 11px; letter-spacing: .04em;
+    transition: all .12s; flex-shrink: 0;
+}
+.new-cat:hover { border-style: solid; border-color: var(--ink-1); color: var(--ink-1); }
+
+.col-foot { padding: 12px 20px 16px; border-top: 1px solid var(--line-hair); }
+.col-foot div { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); letter-spacing: .08em; line-height: 1.8; }
+
+/* ============================================================
+   中栏
+   ============================================================ */
+.main-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+.main-head {
+    height: 64px; flex-shrink: 0; border-bottom: 1px solid var(--line-hard);
+    display: flex; align-items: center; gap: 16px; padding: 0 20px;
+}
+.search-wrap { display: flex; align-items: center; gap: 8px; width: 320px; }
+.search-wrap .hud { flex-shrink: 0; }
+.search-box {
+    flex: 1; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--line-hard); padding-bottom: 4px;
+}
+.search-box .ic { color: var(--ink-2); }
+.search-box input {
+    flex: 1; border: none; outline: none; background: transparent;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-1); height: 24px;
+}
+.search-box input::placeholder { color: var(--ink-3); }
+.search-box:focus-within { border-bottom: 2px solid var(--ark); padding-bottom: 3px; }
+
+.showing { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); letter-spacing: .06em; white-space: nowrap; }
+.showing b { color: var(--ink-1); font-weight: 700; }
+
+.head-btns { display: flex; gap: 10px; }
+.btn {
+    height: 36px; padding: 0 16px;
+    font-family: var(--font-hud); font-weight: 600; font-size: 12px; letter-spacing: .04em;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: background .12s, color .12s, box-shadow .12s;
+    white-space: nowrap;
+}
+.btn-outline { border: 1px solid var(--line-hard); color: var(--ink-1); background: transparent; }
+.btn-outline:hover { background: var(--ink-1); color: #FAFAF7; }
+.btn-outline.armed { background: var(--ink-1); color: #FAFAF7; }
+.btn-outline.armed::before { content: ''; width: 8px; height: 8px; background: var(--ark); }
+.btn-dark {
+    background: var(--ink-1); color: #FAFAF7;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+    padding-right: 20px;
+}
+.btn-dark:hover { background: #2A281E; }
+
+/* ---------- 卡片网格 ---------- */
+.grid-wrap { flex: 1; min-height: 0; padding: 20px; position: relative; overflow-y: auto; }
+.grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 16px; height: 100%; }
+
+.card {
+    position: relative; cursor: pointer;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+    background: var(--line-hard);
+    transition: background .12s;
+}
+.card-inner {
+    position: absolute; inset: 1px;
+    clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+    background: var(--bg-raise);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.card-cover { flex: 1; min-height: 0; overflow: hidden; position: relative; background: var(--bg-sunk); }
+.card-cover img {
+    width: 100%; height: 112%; object-fit: cover; object-position: top; display: block;
+    transition: filter .15s;
+}
+.card-num {
+    position: absolute; top: 0; left: 0; z-index: 2;
+    min-width: 30px; height: 20px; padding: 0 6px;
+    background: var(--ink-1); color: #FAFAF7;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+    display: flex; align-items: center; justify-content: center;
+}
+.card-check {
+    position: absolute; top: 8px; left: 8px; z-index: 2;
+    width: 18px; height: 18px; border: 1px solid var(--line-hard); background: var(--bg-raise);
+    display: none; align-items: center; justify-content: center; color: var(--ark-ink);
+}
+.card-check.on { background: var(--ark); border-color: var(--ark); }
+.grid.batch .card-check { display: flex; }
+.grid.batch .card-num { display: none; }
+
+.card-actions {
+    position: absolute; top: 10px; right: 14px; z-index: 3;
+    display: flex; gap: 6px; opacity: 0; transition: opacity .12s;
+}
+.card:hover .card-actions { opacity: 1; }
+.grid.batch .card-actions { display: none; }
+.card-act {
+    width: 28px; height: 28px; background: var(--bg-raise); border: 1px solid var(--line-hard);
+    display: flex; align-items: center; justify-content: center; color: var(--ink-1);
+    transition: background .12s, color .12s;
+}
+.card-act:hover { background: var(--ink-1); color: #FAFAF7; }
+.card-act.danger:hover { color: var(--err); background: var(--bg-raise); border-color: var(--err); }
+
+.card-info { height: 92px; flex-shrink: 0; padding: 10px 12px 0; border-top: 1px solid transparent; transition: background .12s, border-color .12s; }
+.card:hover .card-info { border-top-color: var(--ink-1); }
+.ci-row1 { display: flex; align-items: baseline; gap: 8px; }
+.ci-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-heat { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.ci-heat .ic { color: var(--ink-3); }
+.ci-tag { margin-top: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-soc { margin-top: 7px; display: flex; gap: 4px; }
+.soc {
+    width: 16px; height: 16px; border: 1px solid var(--line-hair);
+    font-family: var(--font-mono); font-size: 9px; color: var(--ink-2);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all .12s;
+}
+.soc:hover { border-color: var(--ink-1); color: var(--ink-1); }
+
+/* 选中态【Y3】 */
+.card.is-selected { background: var(--ark-deep); }
+.card.is-selected .card-info { background: var(--ark-wash); }
+.sel-badge {
+    position: absolute; top: 0; right: 0; z-index: 4;
+    width: 30px; height: 24px; background: var(--ark); color: var(--ark-ink);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+    display: none; align-items: center; justify-content: center;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+.card.is-selected .sel-badge { display: flex; }
+.card.is-selected .card-actions { display: none; }
+
+/* 空槽 */
+.card.slot-empty { background: var(--line-hair); cursor: default; }
+.card.slot-empty .card-inner { background: var(--bg-sunk); align-items: center; justify-content: center; gap: 8px; }
+.card.slot-empty .hud { color: var(--ink-3); }
+
+/* 批量条 */
+.batch-bar {
+    position: absolute; left: 20px; right: 20px; bottom: 20px; z-index: 10;
+    height: 44px; background: var(--ink-1); color: #FAFAF7;
+    display: none; align-items: center; gap: 20px; padding: 0 16px;
+    font-family: var(--font-hud); font-size: 12px; font-weight: 500;
+}
+.batch-bar.show { display: flex; }
+.batch-bar .n { font-family: var(--font-mono); color: var(--ark); font-weight: 700; }
+.batch-bar button { color: #FAFAF7; font-family: var(--font-hud); font-size: 12px; font-weight: 600; padding: 4px 8px; }
+.batch-bar button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.batch-bar button.danger { color: #D98B80; }
+.batch-bar .quit { margin-left: auto; color: var(--ink-3); }
+
+/* ---------- 分页 ---------- */
+.pager {
+    height: 44px; flex-shrink: 0; border-top: 1px solid var(--line-hard);
+    display: flex; align-items: center; gap: 16px; padding: 0 20px;
+}
+.pager .pages { display: flex; gap: 16px; align-items: center; margin: 0 auto; }
+.pg {
+    font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+    padding: 2px 2px 5px; position: relative; transition: color .12s;
+}
+.pg:hover { color: var(--ink-1); text-decoration: underline; text-underline-offset: 4px; }
+.pg.cur { color: var(--ink-1); font-weight: 700; }
+.pg.cur::after { content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 12px; height: 3px; background: var(--ark); }
+.pg-arrow {
+    width: 28px; height: 28px; border: 1px solid var(--line-hard); color: var(--ink-1);
+    display: flex; align-items: center; justify-content: center; transition: all .12s;
+}
+.pg-arrow:hover { background: var(--ink-1); color: #FAFAF7; }
+.pager .foot { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); letter-spacing: .08em; }
+
+/* ============================================================
+   右栏 SELECTED / 编队输出台
+   ============================================================ */
+.compose-col {
+    border-left: 1px solid var(--line-hard);
+    display: flex; flex-direction: column;
+    padding: 16px 20px 16px;
+    background: var(--bg-base);
+    min-height: 0; gap: 14px;
+}
+.sel-head { display: flex; align-items: flex-end; justify-content: space-between; }
+.sel-head .hud { padding-bottom: 4px; }
+/* 【Y4】已选大数字 */
+.sel-count { font-family: var(--font-display); font-weight: 600; font-size: 24px; line-height: 1; color: var(--ark-deep); }
+.sel-count small { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); font-weight: 400; margin-left: 4px; }
+
+.rail-block { border-top: 1px solid var(--line-hard); padding-top: 10px; }
+.rail-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.rail-head .t { font-family: var(--font-mono); font-size: 10px; color: var(--ink-2); }
+.rail { display: flex; height: 14px; border: 1px solid var(--line-hard); overflow: hidden; }
+.rail-seg { height: 100%; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 8px; color: #FAFAF7; overflow: hidden; white-space: nowrap; }
+.rail-seg.first { background: var(--ark) !important; color: var(--ark-ink); font-weight: 700; }
+.rail-legend { margin-top: 5px; display: flex; gap: 14px; }
+.rail-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.rail-legend i { width: 8px; height: 8px; display: inline-block; }
+
+.fmt-row { display: flex; align-items: center; gap: 10px; }
+.fmt-switch { display: flex; }
+.fmt-btn {
+    width: 60px; height: 28px; border: 1px solid var(--line-hard);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--ink-3);
+    background: transparent; transition: all .12s;
+}
+.fmt-btn + .fmt-btn { border-left: none; }
+.fmt-btn.active { background: var(--ink-1); color: #FAFAF7; border-color: var(--ink-1); }
+.fmt-hint { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); }
+
+.sel-list { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--line-hard); }
+.sel-item {
+    height: 52px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--line-hair); padding-right: 2px;
+}
+.sel-item .grip { color: var(--ink-3); cursor: grab; flex-shrink: 0; }
+.sel-item .grip:hover { color: var(--ink-1); }
+.sel-item .ord { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); width: 14px; flex-shrink: 0; }
+.sel-item .who { min-width: 0; flex: 1; }
+.sel-item .who .n { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sel-item .who .t { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stepper { display: flex; flex-shrink: 0; }
+.stepper button, .stepper .val {
+    width: 24px; height: 24px; border: 1px solid var(--line-hard);
+    font-family: var(--font-mono); font-size: 10px; color: var(--ink-1);
+    display: flex; align-items: center; justify-content: center;
+}
+.stepper button { transition: all .1s; }
+.stepper button:hover { background: var(--ink-1); color: #FAFAF7; }
+.stepper .val { width: 34px; border-left: none; border-right: none; background: var(--bg-raise); }
+.stepper .minus { border-right: none; }
+.stepper .plus { border-left: none; }
+
+.sel-item.ghost {
+    background: var(--bg-sunk) repeating-linear-gradient(45deg, transparent 0 4px, rgba(22,21,15,.05) 4px 8px);
+    border: 1px dashed var(--ink-3); margin: 6px 0; height: 50px;
+}
+.sel-item.ghost .n { color: var(--ink-2); }
+.ghost-tag { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; }
+.ghost-tag i { width: 6px; height: 6px; background: var(--warn); display: inline-block; }
+.ghost-tag span { font-family: var(--font-mono); font-size: 9px; color: var(--warn); letter-spacing: .06em; }
+.sel-item .rm { color: var(--ink-3); font-family: var(--font-mono); font-size: 12px; padding: 4px; flex-shrink: 0; }
+.sel-item .rm:hover { color: var(--err); }
+
+.out-block { flex-shrink: 0; }
+.out-label {
+    height: 20px; background: var(--ink-1); color: #FAFAF7;
+    font-family: var(--font-hud); font-weight: 600; font-size: 9px; letter-spacing: .12em;
+    display: flex; align-items: center; padding: 0 10px; gap: 8px;
+}
+.out-label .dim { color: var(--ink-3); }
+.out-box {
+    height: 96px; border: 1px solid var(--line-hard); border-top: none;
+    background: var(--bg-raise); padding: 10px 12px;
+    font-family: var(--font-mono); font-size: 10px; line-height: 1.7; color: var(--ink-1);
+    overflow-y: auto; word-break: break-all;
+    outline: none; resize: none; width: 100%;
+}
+
+.act-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
+.act-btn {
+    height: 38px; border: 1px solid var(--line-hard); background: transparent;
+    font-family: var(--font-hud); font-weight: 600; font-size: 12px; color: var(--ink-1);
+    transition: all .12s;
+}
+.act-btn:hover { background: var(--ink-1); color: #FAFAF7; }
+.act-btn.ghost-danger:hover { background: transparent; color: var(--err); border-color: var(--err); }
+/* 【Y6】复制主按钮 */
+.act-btn.primary {
+    background: var(--ark); border: none; color: var(--ark-ink);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.act-btn.primary:hover { background: var(--ark-deep); box-shadow: 3px 3px 0 var(--ink-1); }
+
+.compose-foot { flex-shrink: 0; border-top: 1px solid var(--line-hair); padding-top: 10px; display: flex; justify-content: space-between; }
+.compose-foot span { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); letter-spacing: .08em; }
+
+/* ---------- Toast ---------- */
+#toast {
+    position: absolute; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(8px);
+    background: var(--ink-1); color: #FAFAF7; padding: 10px 20px;
+    font-family: var(--font-hud); font-size: 12px; font-weight: 500;
+    opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; z-index: 99;
+    border-left: 4px solid var(--ark);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="stage-shell">
+<main id="stage" aria-label="白栈整备终端 A1 主界面设计稿">
+
+    <!-- ================= 左栏 INDEX ================= -->
+    <aside class="index-col">
+        <div class="brand">
+            <div class="brand-mark">WS</div>
+            <div>
+                <div class="brand-name">白栈整备终端</div>
+                <div class="brand-sub hud">WHITESTACK TERMINAL · REV 2026.08</div>
+            </div>
+            <div class="brand-side"><b>昼</b> / 夜</div>
+        </div>
+        <div class="tape"></div>
+        <div class="col-body">
+            <div class="tabs">
+                <button class="tab active" id="tab-artists">画师档案</button>
+                <button class="tab" id="tab-presets">风格预设</button>
+            </div>
+            <div class="sort-row">
+                <span class="hud">Sort</span>
+                <div class="select-wrap">
+                    <select id="sort-sel">
+                        <option value="heat">按热度 ↓</option>
+                        <option value="name">按名称 A→Z</option>
+                        <option value="update">按最近更新</option>
+                    </select>
+                    <span class="ic" data-ic="caret"></span>
+                </div>
+            </div>
+            <div class="data-btns">
+                <button class="data-btn" data-demo="导入"><span class="ic" data-ic="import"></span>导入</button>
+                <button class="data-btn" data-demo="导出"><span class="ic" data-ic="export"></span>导出</button>
+                <button class="data-btn" data-demo="更新数据"><span class="ic" data-ic="refresh"></span>更新数据<span class="tail">v12</span></button>
+            </div>
+            <div class="filter-head">
+                <span class="hud">Filter / 分类索引</span>
+                <span class="total">Σ 248</span>
+            </div>
+            <div class="cat-list" id="cat-list">
+                <div class="cat-row active" data-cat="all"><span class="idx">00</span><span class="name">全部</span><span class="cnt">248</span></div>
+                <div class="cat-row" data-cat="插画"><span class="idx">01</span><span class="name">插画</span><span class="cnt">110</span></div>
+                <div class="cat-row" data-cat="厚涂"><span class="idx">02</span><span class="name">厚涂</span><span class="cnt">64</span></div>
+                <div class="cat-row" data-cat="平涂"><span class="idx">03</span><span class="name">平涂</span><span class="cnt">41</span></div>
+                <div class="cat-row" data-cat="线稿"><span class="idx">04</span><span class="name">线稿</span><span class="cnt">15</span></div>
+                <div class="cat-row" data-cat="场景"><span class="idx">05</span><span class="name">场景</span><span class="cnt">18</span></div>
+            </div>
+            <button class="new-cat" data-demo="新建分类">+ 新建分类</button>
+        </div>
+        <div class="col-foot">
+            <div>LOCAL STORAGE ONLY</div>
+            <div>LAST SYNC 2026-08-14</div>
+        </div>
+    </aside>
+
+    <!-- ================= 中栏 ================= -->
+    <section class="main-col">
+        <header class="main-head">
+            <div class="search-wrap">
+                <span class="hud">Search</span>
+                <div class="search-box">
+                    <span class="ic" data-ic="search"></span>
+                    <input id="search-input" type="text" placeholder="搜索画师 / tag…" autocomplete="off">
+                </div>
+            </div>
+            <span class="showing" id="showing">SHOWING <b>08</b> / 248</span>
+            <div class="head-btns">
+                <button class="btn btn-outline" id="batch-btn">批量</button>
+                <button class="btn btn-dark" data-demo="添加画师"><span class="ic" data-ic="plus"></span>添加画师</button>
+            </div>
+        </header>
+
+        <div class="grid-wrap">
+            <div class="grid" id="grid"></div>
+            <div class="batch-bar" id="batch-bar">
+                <span>已选 <span class="n" id="batch-n">0</span> 项</span>
+                <button data-demo="移动分类">移动分类</button>
+                <button class="danger" data-demo="批量删除">删除</button>
+                <button class="quit" id="batch-quit">取消</button>
+            </div>
+        </div>
+
+        <footer class="pager">
+            <span class="hud">Page</span>
+            <div class="pages">
+                <button class="pg cur">01</button>
+                <button class="pg">02</button>
+                <button class="pg">03</button>
+                <span class="pg" style="cursor:default">…</span>
+                <button class="pg">28</button>
+            </div>
+            <button class="pg-arrow" data-demo="上一页"><span class="ic" data-ic="left"></span></button>
+            <button class="pg-arrow" data-demo="下一页"><span class="ic" data-ic="right"></span></button>
+            <span class="foot">WS-TERMINAL · SHEET A1 · 1600×1000</span>
+        </footer>
+    </section>
+
+    <!-- ================= 右栏 SELECTED ================= -->
+    <aside class="compose-col">
+        <div class="sel-head">
+            <span class="hud">Selected / 编队</span>
+            <div class="sel-count"><span id="sel-n">3</span><small>/ 08</small></div>
+        </div>
+
+        <div class="rail-block">
+            <div class="rail-head">
+                <span class="hud">Composition</span>
+                <span class="t" id="rail-total">TOTAL 4.0</span>
+            </div>
+            <div class="rail" id="rail"></div>
+            <div class="rail-legend hud">
+                <span><i style="background:var(--ark)"></i>TOP WEIGHT</span>
+                <span><i style="background:var(--ink-2)"></i>OTHERS</span>
+            </div>
+        </div>
+
+        <div class="fmt-row">
+            <span class="hud">Format</span>
+            <div class="fmt-switch">
+                <button class="fmt-btn active" data-fmt="SDXL">SDXL</button>
+                <button class="fmt-btn" data-fmt="NAI">NAI</button>
+            </div>
+            <span class="fmt-hint" id="fmt-hint">(tag:1.2)</span>
+        </div>
+
+        <div class="sel-list" id="sel-list"></div>
+
+        <div class="out-block">
+            <div class="out-label">OUTPUT <span class="dim" id="out-fmt">/ SDXL · EDITABLE</span></div>
+            <textarea class="out-box" id="out-box" spellcheck="false"></textarea>
+        </div>
+
+        <div class="act-grid">
+            <button class="act-btn" data-demo="导入串">导入串</button>
+            <button class="act-btn" data-demo="存预设">存预设</button>
+            <button class="act-btn ghost-danger" id="clear-btn">清空</button>
+            <button class="act-btn primary" id="copy-btn">复制咒语</button>
+        </div>
+
+        <div class="compose-foot">
+            <span>WS-TERMINAL · A1</span>
+            <span>本地存储 · 不上传</span>
+        </div>
+    </aside>
+
+    <div id="toast"></div>
+</main>
+</div>
+
+<script>
+/* ================= 内联 SVG 图标库 ================= */
+const IC = {
+    search: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+    plus: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+    import: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>',
+    export: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15V3m0 0L8 7m4-4l4 4M4 21h16"/></svg>',
+    refresh: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg>',
+    flame: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2c1 4-3 5-3 9a5 5 0 0 0 10 0c0-2-1-3.5-2-5-.5 1.5-1.5 2-2.5 2C14 6 13 4 12 2z"/></svg>',
+    grip: '<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="2.5" r="1.3"/><circle cx="7.5" cy="2.5" r="1.3"/><circle cx="2.5" cy="8" r="1.3"/><circle cx="7.5" cy="8" r="1.3"/><circle cx="2.5" cy="13.5" r="1.3"/><circle cx="7.5" cy="13.5" r="1.3"/></svg>',
+    pencil: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 3l4 4L8 20l-5 1 1-5L17 3z"/></svg>',
+    trash: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3m-8 0l1 13h8l1-13"/></svg>',
+    caret: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>',
+    left: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>',
+    right: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>',
+    check: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg>'
+};
+document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = IC[el.dataset.ic] || '');
+
+/* ================= Mock 数据（字段对齐 index.html state） ================= */
+const ARTISTS = [
+    { id:'a01', no:'042', name:'白川 凪',   tag:'shirakawa_nagi', heat:'42.1k', hv:42100, cover:'covers/cover-01.png', soc:['P','X','F'], cat:'插画' },
+    { id:'a02', no:'108', name:'暮羽',       tag:'kureha_tw',      heat:'12.4k', hv:12400, cover:'covers/cover-02.png', soc:['P','X'],    cat:'厚涂' },
+    { id:'a03', no:'073', name:'雨森',       tag:'amemori',        heat:'8.7k',  hv:8700,  cover:'covers/cover-03.png', soc:['P'],        cat:'插画' },
+    { id:'a04', no:'011', name:'斬鬼',       tag:'zanki_ink',      heat:'23.9k', hv:23900, cover:'covers/cover-04.png', soc:['X'],        cat:'线稿' },
+    { id:'a05', no:'156', name:'橙平',       tag:'oudai_flat',     heat:'15.2k', hv:15200, cover:'covers/cover-05.png', soc:['P','F'],    cat:'平涂' },
+    { id:'a06', no:'089', name:'燭堂',       tag:'shokudou_g',     heat:'6.3k',  hv:6300,  cover:'covers/cover-06.png', soc:['P','X'],    cat:'厚涂' },
+    { id:'a07', no:'201', name:'桃兎',       tag:'momoto_m',       heat:'31.8k', hv:31800, cover:'covers/cover-07.png', soc:['X','F'],    cat:'插画' },
+    { id:'a08', no:'034', name:'遠野',       tag:'tono_scape',     heat:'19.5k', hv:19500, cover:'covers/cover-08.png', soc:['P'],        cat:'场景' }
+];
+const PRESETS = [
+    { name:'厚涂情绪组', ids:['a02','a06'],     cover:'covers/cover-02.png' },
+    { name:'清新日常',   ids:['a01','a03','a07'], cover:'covers/cover-03.png' },
+    { name:'黑白张力',   ids:['a04'],           cover:'covers/cover-04.png' }
+];
+const GHOST = { id:'ghost', name:'mika_fanbox?', tag:'unknown_artist_xx', ghost:true };
+
+/* ================= 状态 ================= */
+const S = {
+    tab: 'artists',            // artists | presets
+    sort: 'heat',
+    query: '',
+    cat: 'all',
+    batch: false,
+    batchSel: new Set(),
+    fmt: 'SDXL',
+    sel: [ {id:'a01', w:1.2}, {id:'a04', w:1.0}, {id:'a07', w:0.8}, {id:'ghost', w:1.0} ]
+};
+const findA = id => ARTISTS.find(a => a.id === id) || GHOST;
+
+/* ================= 舞台缩放 ================= */
+const shell = document.getElementById('stage-shell');
+const stage = document.getElementById('stage');
+function fitStage() {
+    const scale = Math.min(window.innerWidth / 1600, window.innerHeight / 1000);
+    shell.style.width  = `${1600 * scale}px`;
+    shell.style.height = `${1000 * scale}px`;
+    stage.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', fitStage);
+
+/* ================= Toast ================= */
+const toast = document.getElementById('toast');
+let toastTimer;
+function showToast(msg) {
+    clearTimeout(toastTimer);
+    toast.textContent = msg;
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1700);
+}
+document.querySelectorAll('[data-demo]').forEach(el =>
+    el.addEventListener('click', e => { e.stopPropagation(); showToast(`演示稿 ·「${el.dataset.demo}」未实装`); })
+);
+
+/* ================= 网格渲染 ================= */
+const grid = document.getElementById('grid');
+const GRAY5 = ['#16150F','#57564C','#8B8A7E','#BDBCAF','#E6E6E0'];
+
+function visibleArtists() {
+    let list = ARTISTS.slice();
+    if (S.cat !== 'all') list = list.filter(a => a.cat === S.cat);
+    if (S.query) {
+        const q = S.query.toLowerCase();
+        list = list.filter(a => a.name.toLowerCase().includes(q) || a.tag.includes(q));
+    }
+    if (S.sort === 'heat') list.sort((a, b) => b.hv - a.hv);
+    if (S.sort === 'name') list.sort((a, b) => a.tag.localeCompare(b.tag));
+    if (S.sort === 'update') list.reverse();
+    return list;
+}
+
+function renderGrid() {
+    document.getElementById('showing').innerHTML =
+        `SHOWING <b>${String(visibleArtists().length).padStart(2,'0')}</b> / 248`;
+    grid.classList.toggle('batch', S.batch);
+
+    if (S.tab === 'presets') {
+        grid.innerHTML = PRESETS.map(p => `
+            <div class="card preset" data-preset="${p.name}">
+                <div class="card-inner">
+                    <div class="card-cover" style="flex:0 0 60%"><img src="${p.cover}" alt="${p.name}"></div>
+                    <div class="card-info" style="height:auto;flex:1">
+                        <div class="ci-row1"><span class="ci-name">${p.name}</span>
+                        <span class="ci-heat mono">${p.ids.length} 组</span></div>
+                        <div class="ci-tag">preset · 点击载入编队</div>
+                    </div>
+                </div>
+            </div>`).join('');
+        grid.querySelectorAll('.preset').forEach(el => el.addEventListener('click', () => {
+            const p = PRESETS.find(x => x.name === el.dataset.preset);
+            S.sel = p.ids.map(id => ({ id, w: 1.0 }));
+            showToast(`已载入预设「${p.name}」`);
+            renderAll();
+        }));
+        return;
+    }
+
+    const list = visibleArtists();
+    grid.innerHTML = list.map(a => {
+        const selIdx = S.sel.findIndex(s => s.id === a.id);
+        const selected = selIdx > -1;
+        return `
+        <div class="card ${selected ? 'is-selected' : ''}" data-id="${a.id}">
+            <div class="card-inner">
+                <div class="card-cover"><img src="${a.cover}" alt="${a.name}" loading="lazy"></div>
+                <div class="card-num">${a.no}</div>
+                <div class="card-check ${S.batchSel.has(a.id) ? 'on' : ''}">${S.batchSel.has(a.id) ? IC.check : ''}</div>
+                <div class="card-actions">
+                    <button class="card-act" data-demo="编辑">${IC.pencil}</button>
+                    <button class="card-act danger" data-demo="删除">${IC.trash}</button>
+                </div>
+                <div class="card-info">
+                    <div class="ci-row1">
+                        <span class="ci-name">${a.name}</span>
+                        <span class="ci-heat"><span class="ic">${IC.flame}</span>${a.heat}</span>
+                    </div>
+                    <div class="ci-tag">${a.tag}</div>
+                    <div class="ci-soc">${a.soc.map(s => `<span class="soc">${s}</span>`).join('')}</div>
+                </div>
+            </div>
+            <div class="sel-badge">S${selIdx + 1}</div>
+        </div>`;
+    }).join('');
+
+    grid.querySelectorAll('.card').forEach(el => {
+        el.querySelectorAll('[data-demo]').forEach(b =>
+            b.addEventListener('click', e => { e.stopPropagation(); showToast(`演示稿 ·「${b.dataset.demo}」未实装`); }));
+        el.addEventListener('click', () => {
+            const id = el.dataset.id;
+            if (S.batch) {
+                S.batchSel.has(id) ? S.batchSel.delete(id) : S.batchSel.add(id);
+                document.getElementById('batch-n').textContent = S.batchSel.size;
+                renderGrid();
+            } else {
+                const i = S.sel.findIndex(s => s.id === id);
+                i > -1 ? S.sel.splice(i, 1) : S.sel.push({ id, w: 1.0 });
+                renderAll();
+            }
+        });
+    });
+}
+
+/* ================= 右栏渲染 ================= */
+function renderSelected() {
+    const list = document.getElementById('sel-list');
+    document.getElementById('sel-n').textContent = S.sel.length;
+    list.innerHTML = S.sel.map((s, i) => {
+        const a = findA(s.id);
+        const inner = a.ghost
+            ? `<span class="n">${a.name}<span class="ghost-tag"><i></i><span>UNMATCHED</span></span></span>
+               <span class="t">${a.tag}</span>`
+            : `<span class="n">${a.name}</span><span class="t">${a.tag}</span>`;
+        return `
+        <div class="sel-item ${a.ghost ? 'ghost' : ''}" data-id="${s.id}">
+            <span class="grip ic">${IC.grip}</span>
+            <span class="ord">${String(i + 1).padStart(2, '0')}</span>
+            <div class="who">${inner}</div>
+            <div class="stepper">
+                <button class="minus" data-d="-1">−</button>
+                <span class="val">${s.w.toFixed(1)}</span>
+                <button class="plus" data-d="1">＋</button>
+            </div>
+            <button class="rm" title="移除">×</button>
+        </div>`;
+    }).join('') || '<div style="padding:20px 4px" class="hud">EMPTY — 点击左侧卡片编入</div>';
+
+    list.querySelectorAll('.sel-item').forEach(el => {
+        const id = el.dataset.id;
+        const rec = S.sel.find(s => s.id === id);
+        el.querySelectorAll('.stepper button').forEach(b => b.addEventListener('click', () => {
+            rec.w = Math.min(2.0, Math.max(0.1, +(rec.w + 0.1 * +b.dataset.d).toFixed(1)));
+            renderAll();
+        }));
+        el.querySelector('.rm').addEventListener('click', () => {
+            S.sel = S.sel.filter(s => s.id !== id);
+            renderAll();
+        });
+    });
+}
+
+function renderRail() {
+    const rail = document.getElementById('rail');
+    const total = S.sel.reduce((sum, s) => sum + s.w, 0);
+    document.getElementById('rail-total').textContent = 'TOTAL ' + total.toFixed(1);
+    if (!S.sel.length) { rail.innerHTML = '<div class="rail-seg" style="width:100%;background:var(--bg-sunk)"></div>'; return; }
+    const sorted = S.sel.slice().sort((a, b) => b.w - a.w);
+    rail.innerHTML = sorted.map((s, i) => {
+        const a = findA(s.id);
+        const pct = s.w / total * 100;
+        const bg = i === 0 ? 'var(--ark)' : GRAY5[(i - 1) % 4 + 1];
+        return `<div class="rail-seg ${i === 0 ? 'first' : ''}" style="width:${pct}%;background:${bg}"
+                     title="${a.name} · ${pct.toFixed(0)}%">${pct >= 14 ? pct.toFixed(0) + '%' : ''}</div>`;
+    }).join('');
+}
+
+function renderOutput() {
+    const txt = S.sel.map(s => {
+        const a = findA(s.id);
+        return S.fmt === 'SDXL' ? `(${a.tag}:${s.w.toFixed(1)})` : `${s.w.toFixed(1)}::${a.tag}::`;
+    }).join(', ');
+    document.getElementById('out-box').value = txt;
+    document.getElementById('out-fmt').textContent = `/ ${S.fmt} · EDITABLE`;
+    document.getElementById('fmt-hint').textContent = S.fmt === 'SDXL' ? '(tag:1.2)' : '1.2::tag::';
+}
+
+function renderAll() { renderGrid(); renderSelected(); renderRail(); renderOutput(); }
+
+/* ================= 交互绑定 ================= */
+document.getElementById('tab-artists').addEventListener('click', function() {
+    S.tab = 'artists';
+    document.getElementById('tab-presets').classList.remove('active');
+    this.classList.add('active');
+    renderGrid();
+});
+document.getElementById('tab-presets').addEventListener('click', function() {
+    S.tab = 'presets';
+    document.getElementById('tab-artists').classList.remove('active');
+    this.classList.add('active');
+    renderGrid();
+});
+document.getElementById('sort-sel').addEventListener('change', function() { S.sort = this.value; renderGrid(); });
+document.getElementById('search-input').addEventListener('input', function() { S.query = this.value.trim(); renderGrid(); });
+document.getElementById('cat-list').addEventListener('click', e => {
+    const row = e.target.closest('.cat-row'); if (!row) return;
+    document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('active'));
+    row.classList.add('active');
+    S.cat = row.dataset.cat;
+    renderGrid();
+});
+document.getElementById('batch-btn').addEventListener('click', function() {
+    S.batch = !S.batch; S.batchSel.clear();
+    this.classList.toggle('armed', S.batch);
+    this.textContent = S.batch ? '退出批量' : '批量';
+    document.getElementById('batch-n').textContent = 0;
+    document.getElementById('batch-bar').classList.toggle('show', S.batch);
+    renderGrid();
+});
+document.getElementById('batch-quit').addEventListener('click', () => document.getElementById('batch-btn').click());
+document.querySelectorAll('.fmt-btn').forEach(b => b.addEventListener('click', function() {
+    document.querySelectorAll('.fmt-btn').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+    S.fmt = this.dataset.fmt;
+    renderOutput();
+}));
+document.getElementById('clear-btn').addEventListener('click', () => { S.sel = []; renderAll(); showToast('编队已清空'); });
+document.getElementById('copy-btn').addEventListener('click', async () => {
+    const txt = document.getElementById('out-box').value;
+    try { await navigator.clipboard.writeText(txt); } catch (e) {
+        const ta = document.getElementById('out-box'); ta.select(); document.execCommand('copy');
+    }
+    showToast('咒语已复制到剪贴板');
+});
+
+/* ================= 启动 ================= */
+fitStage();
+renderAll();
+</script>
+</body>
+</html>

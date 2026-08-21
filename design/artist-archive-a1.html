@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Artist Archive — A1 / White Study</title>
+    <style>
+        :root {
+            --white: #fff;
+            --black: #0a0a0a;
+            --gray-1: #707070;
+            --gray-2: #b7b7b7;
+            --gray-3: #e7e7e7;
+            --sans: Arial, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+            --mono: "IBM Plex Mono", "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+        }
+
+        * { box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--white); color: var(--black); }
+        body, button, input, textarea { font-family: var(--sans); }
+        button, input, textarea { color: inherit; }
+        button { padding: 0; border: 0; background: none; cursor: pointer; }
+
+        #stage-shell { position: relative; overflow: hidden; background: var(--white); }
+
+        #archive-stage {
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 1600px;
+            height: 1000px;
+            transform-origin: top left;
+            display: grid;
+            grid-template-columns: 220px 1040px 340px;
+            grid-template-rows: 126px 824px 50px;
+            overflow: hidden;
+            background: var(--white);
+        }
+
+        .archive-header {
+            grid-column: 1 / 4;
+            grid-row: 1;
+            display: grid;
+            grid-template-columns: 220px 1040px 340px;
+            border-bottom: 1px solid var(--black);
+        }
+
+        .identity-code {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            padding: 24px 22px 20px 28px;
+            border-right: 1px solid var(--black);
+            font-family: var(--mono);
+        }
+
+        .identity-code strong { font-size: 38px; line-height: .85; letter-spacing: -.08em; }
+        .identity-code span { color: var(--gray-1); font-size: 10px; line-height: 1.4; text-align: right; }
+
+        .title-block {
+            display: grid;
+            grid-template-columns: 1fr 330px;
+            align-items: end;
+            gap: 46px;
+            padding: 22px 28px 20px 32px;
+        }
+
+        .title-lockup h1 { margin: 0; font-size: 51px; font-weight: 500; line-height: .88; letter-spacing: -.055em; }
+        .title-lockup p { margin: 11px 0 0 2px; color: var(--gray-1); font-size: 11px; letter-spacing: .16em; }
+
+        .search-field label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-family: var(--mono);
+            color: var(--gray-1);
+            font-size: 9px;
+            letter-spacing: .04em;
+        }
+
+        .search-field input {
+            width: 100%;
+            height: 29px;
+            padding: 0 0 7px;
+            border: 0;
+            border-bottom: 1px solid var(--black);
+            border-radius: 0;
+            outline: none;
+            background: transparent;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .search-field input:focus { border-bottom-width: 2px; }
+
+        .header-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-content: end;
+            gap: 16px 24px;
+            padding: 25px 28px 21px;
+            border-left: 1px solid var(--black);
+            font-family: var(--mono);
+            font-size: 9px;
+        }
+
+        .header-meta dt { margin: 0 0 4px; color: var(--gray-1); }
+        .header-meta dd { margin: 0; }
+        .header-actions { grid-column: 1 / 3; display: flex; gap: 18px; padding-top: 1px; }
+        .text-button { border-bottom: 1px solid transparent; font-family: var(--mono); font-size: 9px; }
+        .text-button:hover, .text-button:focus-visible { border-color: var(--black); outline: none; }
+
+        .index-panel {
+            grid-column: 1;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            padding: 25px 22px 21px 28px;
+            border-right: 1px solid var(--black);
+        }
+
+        .section-kicker {
+            margin: 0 0 20px;
+            font-family: var(--mono);
+            color: var(--gray-1);
+            font-size: 9px;
+            font-weight: 400;
+            letter-spacing: .04em;
+        }
+
+        .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 31px; border-bottom: 1px solid var(--gray-3); }
+        .mode-tab { padding: 0 0 9px; text-align: left; font-size: 13px; }
+        .mode-tab[aria-selected="true"] { border-bottom: 1px solid var(--black); font-weight: 600; }
+
+        .filter-label { margin-bottom: 9px; font-family: var(--mono); color: var(--gray-1); font-size: 8px; }
+        .filter-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--black); }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: 26px 1fr 32px;
+            align-items: center;
+            width: 100%;
+            min-height: 49px;
+            border-bottom: 1px solid var(--gray-3);
+            text-align: left;
+        }
+
+        .filter-row .number, .filter-row .count { font-family: var(--mono); color: var(--gray-1); font-size: 9px; }
+        .filter-row .count { text-align: right; }
+        .filter-row .name { font-size: 12px; }
+        .filter-row:hover .name { text-decoration: underline; text-underline-offset: 3px; }
+        .filter-row[aria-current="true"] .number, .filter-row[aria-current="true"] .count { color: var(--black); }
+        .filter-row[aria-current="true"] .name { font-weight: 600; }
+
+        .data-note {
+            margin-top: auto;
+            padding-top: 16px;
+            border-top: 1px solid var(--black);
+            font-family: var(--mono);
+            font-size: 8px;
+            line-height: 1.55;
+        }
+
+        .data-note strong { display: block; margin-bottom: 6px; font-size: 10px; font-weight: 500; }
+        .data-note span { color: var(--gray-1); }
+
+        .collection {
+            grid-column: 2;
+            grid-row: 2;
+            min-width: 0;
+            min-height: 0;
+            padding: 23px 26px 21px;
+            overflow: hidden;
+        }
+
+        .collection-toolbar {
+            height: 35px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--black);
+            font-family: var(--mono);
+            font-size: 8px;
+        }
+
+        .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 18px; }
+        .view-switch { display: flex; gap: 12px; }
+        .view-button { color: var(--gray-1); font-family: var(--mono); font-size: 8px; }
+        .view-button[aria-pressed="true"] { color: var(--black); text-decoration: underline; text-underline-offset: 4px; }
+
+        .image-view {
+            height: calc(100% - 35px);
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-rows: 395px 336px;
+            gap: 18px 17px;
+            padding-top: 18px;
+        }
+
+        .image-view[hidden], .table-view[hidden] { display: none; }
+
+        .record {
+            position: relative;
+            min-width: 0;
+            min-height: 0;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .record:nth-child(1), .record:nth-child(2), .record:nth-child(3) { grid-column: span 4; }
+        .record:nth-child(n+4) { grid-column: span 3; }
+        .record[hidden] { display: none; }
+
+        .record-image-wrap { position: relative; width: 100%; overflow: hidden; background: #f2f2f2; }
+        .record:nth-child(-n+3) .record-image-wrap { height: 326px; }
+        .record:nth-child(n+4) .record-image-wrap { height: 267px; }
+
+        .record img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            filter: grayscale(1) contrast(1.02);
+            transition: opacity .16s linear;
+        }
+
+        .record:hover img { opacity: .84; }
+        .record:focus-visible .record-image-wrap { outline: 1px solid var(--black); outline-offset: 3px; }
+
+        .selection-index {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: none;
+            min-width: 44px;
+            height: 25px;
+            align-items: center;
+            justify-content: center;
+            background: var(--black);
+            color: var(--white);
+            font-family: var(--mono);
+            font-size: 8px;
+        }
+
+        .record.is-selected .selection-index { display: flex; }
+        .record.is-selected .record-meta { border-top-width: 2px; }
+
+        .record-meta {
+            display: grid;
+            grid-template-columns: 48px minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: start;
+            padding-top: 8px;
+            border-top: 1px solid var(--black);
+        }
+
+        .archive-no, .record-tag, .record-heat { font-family: var(--mono); font-size: 8px; line-height: 1.45; }
+        .record-name { overflow: hidden; font-size: 11px; font-weight: 600; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+        .record-tag { display: block; overflow: hidden; margin-top: 3px; color: var(--gray-1); text-overflow: ellipsis; white-space: nowrap; }
+        .record-heat { white-space: nowrap; text-align: right; }
+
+        .table-view { height: calc(100% - 35px); padding-top: 14px; overflow: hidden; }
+        .artist-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .artist-table th, .artist-table td { border-bottom: 1px solid var(--gray-3); padding: 10px 8px 10px 0; text-align: left; }
+        .artist-table th { font-family: var(--mono); color: var(--gray-1); font-size: 8px; font-weight: 400; }
+        .artist-table td { font-size: 12px; }
+        .artist-table td.mono { font-family: var(--mono); font-size: 9px; }
+        .artist-table tr { cursor: pointer; }
+        .artist-table tbody tr:hover td { border-bottom-color: var(--black); }
+        .artist-table tbody tr.is-selected td:first-child::before { content: "● "; font-size: 7px; }
+
+        .composer {
+            grid-column: 3;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            padding: 25px 27px 21px;
+            border-left: 1px solid var(--black);
+        }
+
+        .composer-header { display: flex; justify-content: space-between; padding-bottom: 13px; border-bottom: 1px solid var(--black); }
+        .composer-header h2 { margin: 0; font-size: 13px; font-weight: 600; }
+        .composer-header span { font-family: var(--mono); font-size: 9px; }
+
+        .selected-list { min-height: 264px; }
+        .selected-item {
+            display: grid;
+            grid-template-columns: 22px minmax(0, 1fr) 79px;
+            align-items: center;
+            min-height: 66px;
+            border-bottom: 1px solid var(--gray-3);
+        }
+
+        .selected-order { font-family: var(--mono); color: var(--gray-1); font-size: 8px; }
+        .selected-name { min-width: 0; }
+        .selected-name strong, .selected-name span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .selected-name strong { font-size: 11px; }
+        .selected-name span { margin-top: 4px; font-family: var(--mono); color: var(--gray-1); font-size: 8px; }
+
+        .weight-control { display: grid; grid-template-columns: 20px 39px 20px; height: 27px; border-bottom: 1px solid var(--black); }
+        .weight-control button { font-family: var(--mono); font-size: 12px; }
+        .weight-control button:hover { background: var(--black); color: var(--white); }
+        .weight-control output { display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 8px; }
+
+        .ratio-block { margin-top: 22px; }
+        .ratio-head { display: flex; justify-content: space-between; margin-bottom: 9px; font-family: var(--mono); color: var(--gray-1); font-size: 8px; }
+        .ratio-bar { display: flex; width: 100%; height: 12px; border: 1px solid var(--black); }
+        .ratio-segment { height: 100%; border-right: 1px solid var(--white); }
+        .ratio-segment:last-child { border-right: 0; }
+        .tone-1 { background: var(--black); }
+        .tone-2 { background: #4c4c4c; }
+        .tone-3 { background: #8d8d8d; }
+        .tone-4 { background: #c7c7c7; }
+
+        .prompt-area { margin-top: auto; }
+        .prompt-label { display: flex; justify-content: space-between; margin-bottom: 8px; font-family: var(--mono); color: var(--gray-1); font-size: 8px; }
+        #prompt-output {
+            width: 100%;
+            height: 86px;
+            padding: 11px 0;
+            resize: none;
+            border: 0;
+            border-top: 1px solid var(--black);
+            border-bottom: 1px solid var(--black);
+            border-radius: 0;
+            outline: none;
+            background: transparent;
+            font-family: var(--mono);
+            font-size: 9px;
+            line-height: 1.55;
+        }
+
+        .composer-actions { display: grid; grid-template-columns: 1fr 2fr; margin-top: 14px; gap: 9px; }
+        .outline-action, .primary-action { height: 47px; border: 1px solid var(--black); border-radius: 0; font-family: var(--mono); font-size: 9px; letter-spacing: .04em; }
+        .primary-action { background: var(--black); color: var(--white); }
+        .primary-action:hover { background: var(--white); color: var(--black); }
+        .outline-action:hover { background: var(--black); color: var(--white); }
+
+        .colophon {
+            grid-column: 1 / 4;
+            grid-row: 3;
+            display: grid;
+            grid-template-columns: 220px 1040px 340px;
+            align-items: center;
+            border-top: 1px solid var(--black);
+            font-family: var(--mono);
+            font-size: 8px;
+        }
+
+        .colophon > span { padding: 0 28px; }
+        .colophon > span:nth-child(2) { border-left: 1px solid var(--black); border-right: 1px solid var(--black); }
+        .colophon > span:last-child { text-align: right; font-size: 10px; }
+
+        .toast {
+            position: absolute;
+            z-index: 10;
+            left: 50%;
+            bottom: 68px;
+            transform: translateX(-50%);
+            display: none;
+            padding: 10px 14px;
+            border: 1px solid var(--black);
+            background: var(--white);
+            font-family: var(--mono);
+            font-size: 8px;
+        }
+
+        .toast.is-visible { display: block; }
+    </style>
+</head>
+<body>
+    <div id="stage-shell">
+        <main id="archive-stage" aria-label="画师档案馆 A1 白色版原型">
+            <header class="archive-header">
+                <div class="identity-code">
+                    <strong>AA</strong>
+                    <span>CATALOGUE<br>2026 / 01</span>
+                </div>
+                <div class="title-block">
+                    <div class="title-lockup">
+                        <h1>Artist Archive</h1>
+                        <p>画师档案馆 / LOCAL VISUAL REFERENCE SYSTEM</p>
+                    </div>
+                    <div class="search-field">
+                        <label for="archive-search"><span>SEARCH THE ARCHIVE</span><span>⌕</span></label>
+                        <input id="archive-search" type="search" autocomplete="off" aria-label="搜索画师">
+                    </div>
+                </div>
+                <dl class="header-meta">
+                    <div><dt>RECORDS</dt><dd>248</dd></div>
+                    <div><dt>STORAGE</dt><dd>LOCAL</dd></div>
+                    <div class="header-actions">
+                        <button class="text-button" id="batch-button" type="button">BATCH SELECT</button>
+                        <button class="text-button" id="add-button" type="button">+ NEW RECORD</button>
+                    </div>
+                </dl>
+            </header>
+
+            <aside class="index-panel" aria-label="档案筛选">
+                <h2 class="section-kicker">ARCHIVE / NAVIGATION</h2>
+                <div class="mode-tabs" role="tablist" aria-label="内容类型">
+                    <button class="mode-tab" type="button" aria-selected="true">ARTISTS</button>
+                    <button class="mode-tab" type="button" aria-selected="false" id="presets-tab">SETS</button>
+                </div>
+                <div class="filter-label">FILTER BY DISCIPLINE</div>
+                <ol class="filter-list">
+                    <li><button class="filter-row" type="button" data-category="all" aria-current="true"><span class="number">00</span><span class="name">全部档案</span><span class="count">248</span></button></li>
+                    <li><button class="filter-row" type="button" data-category="插画"><span class="number">01</span><span class="name">插画</span><span class="count">128</span></button></li>
+                    <li><button class="filter-row" type="button" data-category="厚涂"><span class="number">02</span><span class="name">厚涂</span><span class="count">076</span></button></li>
+                    <li><button class="filter-row" type="button" data-category="写实"><span class="number">03</span><span class="name">写实</span><span class="count">054</span></button></li>
+                    <li><button class="filter-row" type="button" data-category="黑白"><span class="number">04</span><span class="name">黑白</span><span class="count">031</span></button></li>
+                    <li><button class="filter-row" type="button" data-category="版画"><span class="number">05</span><span class="name">版画</span><span class="count">042</span></button></li>
+                    <li><button class="filter-row" type="button" data-category="摄影"><span class="number">06</span><span class="name">摄影</span><span class="count">028</span></button></li>
+                </ol>
+                <div class="data-note">
+                    <strong>INDEX STATUS — CURRENT</strong>
+                    <span>LAST BACKUP 14 AUG 2026<br>7 IMAGES ON THIS SHEET<br>ALL DATA REMAINS ON DEVICE</span>
+                </div>
+            </aside>
+
+            <section class="collection" aria-label="画师档案">
+                <header class="collection-toolbar">
+                    <div class="toolbar-left"><span id="result-count">SHOWING 08 / 248</span><span>PAGE 01</span></div>
+                    <div class="toolbar-right">
+                        <span>VIEW</span>
+                        <div class="view-switch">
+                            <button class="view-button" type="button" data-view="image" aria-pressed="true">IMAGE</button>
+                            <button class="view-button" type="button" data-view="index" aria-pressed="false">INDEX</button>
+                        </div>
+                        <span>SORT / UPDATED</span>
+                    </div>
+                </header>
+                <div class="image-view" id="image-view"></div>
+                <div class="table-view" id="table-view" hidden></div>
+            </section>
+
+            <aside class="composer" aria-label="Prompt 组合">
+                <header class="composer-header"><h2>Prompt composition</h2><span id="selected-count">04 / 08</span></header>
+                <div class="selected-list" id="selected-list"></div>
+                <section class="ratio-block" aria-label="权重分布">
+                    <div class="ratio-head"><span>RELATIVE WEIGHT</span><span id="total-weight">4.0 TOTAL</span></div>
+                    <div class="ratio-bar" id="ratio-bar"></div>
+                </section>
+                <div class="prompt-area">
+                    <label class="prompt-label" for="prompt-output"><span>OUTPUT / SDXL</span><span>EDITABLE</span></label>
+                    <textarea id="prompt-output" spellcheck="false"></textarea>
+                    <div class="composer-actions">
+                        <button class="outline-action" id="save-button" type="button">SAVE SET</button>
+                        <button class="primary-action" id="copy-button" type="button">COPY PROMPT</button>
+                    </div>
+                </div>
+            </aside>
+
+            <footer class="colophon">
+                <span>AA—26 / SHEET A1</span>
+                <span>IMAGE STUDY: PUBLIC DOMAIN / UNSPLASH · UI DATA STORED LOCALLY · NO EXTERNAL ACCOUNT</span>
+                <span>A1 / 01</span>
+            </footer>
+            <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        </main>
+    </div>
+
+    <script>
+        const artists = [
+            { id:'042', name:'白河 しらかわ', tag:'shirakawa_h', heat:'12.4k', category:'插画', image:'assets-v2/onchi-mrs.jpg', position:'50% 37%' },
+            { id:'017', name:'KRENZ', tag:'krenz_art', heat:'9.8k', category:'厚涂', image:'assets-v2/archive-art-03.jpg', position:'50% 50%' },
+            { id:'063', name:'魚缶 うおかん', tag:'uokan_illust', heat:'15.6k', category:'版画', image:'assets-v2/onchi-violinist.jpg', position:'50% 42%' },
+            { id:'028', name:'玄舟 XUANZHOU', tag:'xuanzhou_ink', heat:'11.2k', category:'黑白', image:'assets-v2/archive-art-04.jpg', position:'50% 50%' },
+            { id:'031', name:'灯川 ひかわ', tag:'hikawa_31', heat:'8.7k', category:'写实', image:'assets-v2/archive-art-05.jpg', position:'50% 50%' },
+            { id:'009', name:'LAMBER', tag:'lamber_studio', heat:'14.1k', category:'厚涂', image:'assets-v2/archive-art-06.jpg', position:'50% 50%' },
+            { id:'053', name:'鏡花 きょうか', tag:'kyouka_works', heat:'10.3k', category:'摄影', image:'assets-v2/archive-art-08.jpg', position:'50% 50%' }
+        ];
+
+        let selectedOrder = ['063', '017', '042', '031'];
+        const weights = new Map([['063',1.3],['017',1.0],['042',0.9],['031',0.8]]);
+        let activeCategory = 'all';
+        let searchTerm = '';
+        let activeView = 'image';
+        let toastTimer;
+
+        const stage = document.getElementById('archive-stage');
+        const shell = document.getElementById('stage-shell');
+        const imageView = document.getElementById('image-view');
+        const tableView = document.getElementById('table-view');
+        const selectedList = document.getElementById('selected-list');
+        const ratioBar = document.getElementById('ratio-bar');
+        const promptOutput = document.getElementById('prompt-output');
+        const toast = document.getElementById('toast');
+
+        function fitStage() {
+            const scale = Math.min(window.innerWidth / 1600, window.innerHeight / 1000);
+            shell.style.width = `${1600 * scale}px`;
+            shell.style.height = `${1000 * scale}px`;
+            stage.style.transform = `scale(${scale})`;
+        }
+
+        function showToast(message) {
+            clearTimeout(toastTimer);
+            toast.textContent = message;
+            toast.classList.add('is-visible');
+            toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 1700);
+        }
+
+        function getVisibleArtists() {
+            return artists.filter((artist) => {
+                const matchesCategory = activeCategory === 'all' || artist.category === activeCategory;
+                const matchesSearch = `${artist.name} ${artist.tag}`.toLowerCase().includes(searchTerm);
+                return matchesCategory && matchesSearch;
+            });
+        }
+
+        function toggleArtist(id) {
+            if (selectedOrder.includes(id)) selectedOrder = selectedOrder.filter((item) => item !== id);
+            else { selectedOrder.push(id); if (!weights.has(id)) weights.set(id, 1); }
+            renderCollection();
+            renderComposer();
+        }
+
+        function recordCard(artist) {
+            const selectionIndex = selectedOrder.indexOf(artist.id);
+            return `<article class="record${selectionIndex >= 0 ? ' is-selected' : ''}" data-id="${artist.id}" tabindex="0" aria-pressed="${selectionIndex >= 0}">
+                <div class="record-image-wrap"><img src="${artist.image}" style="object-position:${artist.position}" alt="${artist.name} 档案图像"><span class="selection-index">SEL ${String(selectionIndex + 1).padStart(2,'0')}</span></div>
+                <div class="record-meta"><span class="archive-no">No.${artist.id}</span><span><span class="record-name">${artist.name}</span><span class="record-tag">@${artist.tag}</span></span><span class="record-heat">${artist.heat}</span></div>
+            </article>`;
+        }
+
+        function renderCollection() {
+            const visible = getVisibleArtists();
+            document.getElementById('result-count').textContent = `SHOWING ${String(visible.length).padStart(2,'0')} / 248`;
+            imageView.innerHTML = visible.map(recordCard).join('');
+            tableView.innerHTML = `<table class="artist-table"><thead><tr><th style="width:10%">RECORD</th><th style="width:25%">ARTIST</th><th style="width:27%">TAG</th><th style="width:18%">DISCIPLINE</th><th style="width:12%">POSTS</th><th style="width:8%">YEAR</th></tr></thead><tbody>${visible.map((artist) => `<tr data-id="${artist.id}" class="${selectedOrder.includes(artist.id)?'is-selected':''}"><td class="mono">No.${artist.id}</td><td>${artist.name}</td><td class="mono">@${artist.tag}</td><td>${artist.category}</td><td class="mono">${artist.heat}</td><td class="mono">2026</td></tr>`).join('')}</tbody></table>`;
+            bindRecordEvents();
+        }
+
+        function bindRecordEvents() {
+            document.querySelectorAll('.record, .artist-table tbody tr').forEach((item) => {
+                item.addEventListener('click', () => toggleArtist(item.dataset.id));
+                item.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleArtist(item.dataset.id); }
+                });
+            });
+        }
+
+        function changeWeight(id, delta) {
+            const current = weights.get(id) || 1;
+            weights.set(id, Math.round(Math.max(0.1, Math.min(2, current + delta)) * 10) / 10);
+            renderComposer();
+        }
+
+        function renderComposer() {
+            const selectedArtists = selectedOrder.map((id) => artists.find((artist) => artist.id === id)).filter(Boolean);
+            const total = selectedArtists.reduce((sum, artist) => sum + (weights.get(artist.id) || 1), 0);
+            document.getElementById('selected-count').textContent = `${String(selectedArtists.length).padStart(2,'0')} / ${String(artists.length).padStart(2,'0')}`;
+            document.getElementById('total-weight').textContent = `${total.toFixed(1)} TOTAL`;
+            selectedList.innerHTML = selectedArtists.length ? selectedArtists.map((artist,index) => `<div class="selected-item"><span class="selected-order">${String(index+1).padStart(2,'0')}</span><span class="selected-name"><strong>${artist.name}</strong><span>@${artist.tag}</span></span><span class="weight-control"><button type="button" data-id="${artist.id}" data-delta="-0.1" aria-label="降低权重">−</button><output>${(weights.get(artist.id)||1).toFixed(1)}</output><button type="button" data-id="${artist.id}" data-delta="0.1" aria-label="增加权重">+</button></span></div>`).join('') : '<div class="selected-item"><span class="selected-order">—</span><span class="selected-name"><strong>NO SELECTION</strong></span></div>';
+            selectedList.querySelectorAll('[data-delta]').forEach((button) => button.addEventListener('click', () => changeWeight(button.dataset.id, Number(button.dataset.delta))));
+            ratioBar.innerHTML = selectedArtists.map((artist,index) => `<span class="ratio-segment tone-${index%4+1}" style="width:${total ? ((weights.get(artist.id)||1)/total)*100 : 0}%" title="${artist.name}"></span>`).join('');
+            promptOutput.value = selectedArtists.map((artist) => { const weight=weights.get(artist.id)||1; return weight===1?artist.tag:`(${artist.tag}:${weight.toFixed(1)})`; }).join(', ');
+        }
+
+        document.querySelectorAll('.filter-row').forEach((button) => button.addEventListener('click', () => {
+            activeCategory = button.dataset.category;
+            document.querySelectorAll('.filter-row').forEach((item) => item.setAttribute('aria-current', item===button?'true':'false'));
+            renderCollection();
+        }));
+
+        document.querySelectorAll('.view-button').forEach((button) => button.addEventListener('click', () => {
+            activeView = button.dataset.view;
+            document.querySelectorAll('.view-button').forEach((item) => item.setAttribute('aria-pressed', item===button?'true':'false'));
+            imageView.hidden = activeView !== 'image';
+            tableView.hidden = activeView !== 'index';
+        }));
+
+        document.getElementById('archive-search').addEventListener('input', (event) => { searchTerm=event.target.value.trim().toLowerCase(); renderCollection(); });
+        document.getElementById('copy-button').addEventListener('click', async () => { try { await navigator.clipboard.writeText(promptOutput.value); } catch(error) { promptOutput.select(); document.execCommand('copy'); } showToast('PROMPT COPIED'); });
+        document.getElementById('save-button').addEventListener('click', () => showToast('SET SAVED / PROTOTYPE'));
+        document.getElementById('batch-button').addEventListener('click', () => showToast('BATCH SELECT / PROTOTYPE'));
+        document.getElementById('add-button').addEventListener('click', () => showToast('NEW RECORD / NEXT VIEW'));
+        document.getElementById('presets-tab').addEventListener('click', () => showToast('SETS / NEXT VIEW'));
+        window.addEventListener('resize', fitStage);
+
+        fitStage();
+        renderCollection();
+        renderComposer();
+    </script>
+</body>
+</html>

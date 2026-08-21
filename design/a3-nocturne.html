@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>NOCTURNE — 暗色画师工作台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+    --page: #0b0c0e;
+    --workspace: #101114;
+    --surface: #15171a;
+    --surface-2: #1b1d21;
+    --hover: #23262b;
+    --line: rgba(255,255,255,.08);
+    --line-strong: rgba(255,255,255,.15);
+    --ink: #f1f2f3;
+    --ink-2: #92969d;
+    --ink-3: #646970;
+    --light: #84c5ff;
+    --light-soft: rgba(132,197,255,.16);
+    --light-faint: rgba(132,197,255,.07);
+    --font: "Outfit", "Microsoft YaHei", "PingFang SC", sans-serif;
+    --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--page); scroll-behavior: smooth; }
+body {
+    margin: 0;
+    min-width: 320px;
+    background:
+        radial-gradient(circle at 82% 4%, rgba(132,197,255,.08), transparent 25rem),
+        var(--page);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 15px;
+    overflow-x: hidden;
+}
+
+button, input { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { color: inherit; }
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+::selection { background: var(--light); color: var(--page); }
+::-webkit-scrollbar { width: 9px; }
+::-webkit-scrollbar-track { background: var(--page); }
+::-webkit-scrollbar-thumb { background: #2a2d32; border: 3px solid var(--page); border-radius: 20px; }
+
+.page-shell { width: 100%; max-width: 100%; overflow-x: hidden; }
+.wrap { width: min(1440px, calc(100% - 48px)); margin: 0 auto; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--ink-2); }
+.quiet { color: var(--ink-3); }
+
+.top-nav {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    z-index: 80;
+    transform: translateX(-50%);
+    width: min(1420px, calc(100% - 36px));
+    height: 62px;
+    padding: 0 12px 0 18px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(11,12,14,.76);
+    backdrop-filter: blur(22px) saturate(130%);
+    box-shadow: 0 14px 60px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.04);
+}
+.brand { display: flex; align-items: center; gap: 11px; font-weight: 600; letter-spacing: -.02em; }
+.brand-mark {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: var(--ink);
+    color: var(--page);
+    font: 600 11px/1 var(--mono);
+    box-shadow: 0 10px 28px rgba(241,242,243,.08);
+}
+.nav-links { display: flex; align-items: center; gap: 34px; color: var(--ink-2); }
+.nav-links a { position: relative; padding: 20px 0; transition: color .25s ease; }
+.nav-links a:hover, .nav-links a.active { color: var(--ink); }
+.nav-links a.active::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 9px;
+    width: 18px;
+    height: 1px;
+    transform: translateX(-50%);
+    background: var(--light);
+    box-shadow: 0 0 12px var(--light);
+}
+.nav-actions { justify-self: end; display: flex; align-items: center; gap: 9px; }
+.nav-search {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: transparent;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background .25s ease, border-color .25s ease;
+}
+.nav-search:hover { background: var(--surface); border-color: var(--line-strong); }
+.nav-search svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+
+.button {
+    min-height: 42px;
+    padding: 0 18px;
+    border: 1px solid var(--line-strong);
+    border-radius: 11px;
+    background: transparent;
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform .22s ease, background .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.button:hover { transform: translateY(-2px); background: var(--surface); border-color: rgba(255,255,255,.24); }
+.button:active { transform: translateY(0) scale(.98); }
+.button.primary { background: var(--ink); border-color: var(--ink); color: var(--page); }
+.button.primary:hover { background: #fff; box-shadow: 0 12px 34px rgba(255,255,255,.12); }
+.button.compact { min-height: 38px; padding: 0 14px; }
+.button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+
+.hero {
+    min-height: 960px;
+    padding: 162px 0 130px;
+    display: grid;
+    align-items: center;
+    position: relative;
+}
+.hero::before {
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: 84px;
+    height: 90px;
+    background: radial-gradient(ellipse, rgba(132,197,255,.18), transparent 68%);
+    filter: blur(28px);
+    pointer-events: none;
+}
+.hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.06fr) minmax(480px, .94fr);
+    gap: clamp(44px, 7vw, 120px);
+    align-items: center;
+}
+.hero-copy { position: relative; z-index: 2; }
+.hero-kicker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 30px;
+    color: var(--ink-2);
+    font: 12px/1 var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+.hero-kicker::before { content: ""; width: 34px; height: 1px; background: var(--ink-3); }
+.hero h1 {
+    width: 100%;
+    max-width: 1120px;
+    margin: 0;
+    font-size: clamp(3rem, 6vw, 6.8rem);
+    line-height: .91;
+    letter-spacing: -.065em;
+    font-weight: 500;
+    text-wrap: balance;
+}
+.hero h1 span { color: var(--ink-3); }
+.hero-copy p {
+    max-width: 590px;
+    margin: 34px 0 0;
+    color: var(--ink-2);
+    font-size: clamp(17px, 1.5vw, 21px);
+    line-height: 1.7;
+}
+.hero-actions { display: flex; gap: 11px; margin-top: 40px; }
+
+.hero-visual {
+    min-height: 640px;
+    position: relative;
+    isolation: isolate;
+}
+.hero-visual::after {
+    content: "";
+    position: absolute;
+    left: 10%; right: 7%; bottom: 1%; height: 60px;
+    background: radial-gradient(ellipse, rgba(132,197,255,.28), transparent 72%);
+    filter: blur(23px);
+    z-index: -1;
+}
+.visual-frame {
+    position: absolute;
+    inset: 10px 0 24px 46px;
+    border: 1px solid var(--line);
+    border-radius: 26px;
+    overflow: hidden;
+    background: var(--workspace);
+    box-shadow: 0 45px 100px rgba(0,0,0,.55), inset 0 1px rgba(255,255,255,.05);
+}
+.visual-frame img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.82) contrast(1.04); }
+.visual-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 45%, rgba(11,12,14,.88) 100%);
+}
+.visual-caption { position: absolute; z-index: 2; left: 30px; right: 30px; bottom: 28px; display: flex; align-items: end; justify-content: space-between; }
+.visual-caption strong { font-size: 23px; font-weight: 500; letter-spacing: -.025em; }
+.visual-caption span { display: block; margin-top: 6px; color: var(--ink-2); font: 12px/1.5 var(--mono); }
+.visual-index { color: var(--ink-2); font: 12px/1 var(--mono); }
+.floating-frame {
+    position: absolute;
+    width: 37%;
+    aspect-ratio: .72;
+    left: -5px;
+    top: 17%;
+    z-index: 4;
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: 0 32px 70px rgba(0,0,0,.58), 0 20px 55px -35px rgba(132,197,255,.8);
+}
+.floating-frame img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.86); }
+.floating-tag {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    padding: 7px 9px;
+    border-radius: 7px;
+    background: rgba(11,12,14,.82);
+    color: var(--ink);
+    font: 11px/1 var(--mono);
+    backdrop-filter: blur(10px);
+}
+
+.marquee-band {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+    background: rgba(16,17,20,.66);
+}
+.marquee-track {
+    width: max-content;
+    display: flex;
+    align-items: center;
+    animation: marquee 28s linear infinite;
+}
+.marquee-group { display: flex; align-items: center; }
+.marquee-item {
+    min-height: 64px;
+    padding: 0 26px;
+    display: flex;
+    align-items: center;
+    gap: 26px;
+    color: var(--ink-2);
+    font: 12px/1 var(--mono);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.marquee-item::after { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--light); box-shadow: 0 0 12px var(--light); }
+@keyframes marquee { to { transform: translateX(-50%); } }
+
+.workspace-section { padding: 170px 0 190px; }
+.section-intro {
+    display: grid;
+    grid-template-columns: minmax(0, 1.38fr) minmax(300px, .62fr);
+    gap: 50px;
+    align-items: end;
+    margin-bottom: 62px;
+}
+.section-intro h2 {
+    max-width: 920px;
+    margin: 0;
+    font-size: clamp(2.7rem, 4.5vw, 5.2rem);
+    line-height: .96;
+    letter-spacing: -.055em;
+    font-weight: 500;
+    text-wrap: balance;
+}
+.section-intro p { max-width: 520px; margin: 0; color: var(--ink-2); font-size: 18px; line-height: 1.7; }
+
+.workbench {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: 290px 290px;
+    grid-auto-flow: dense;
+    gap: 1px;
+    padding: 1px;
+    border-radius: 24px;
+    overflow: hidden;
+    background: var(--line-strong);
+    box-shadow: 0 50px 110px rgba(0,0,0,.45), 0 28px 90px -54px rgba(132,197,255,.65);
+}
+.workbench::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: 14%; right: 14%; bottom: -20px; height: 70px;
+    background: radial-gradient(ellipse, rgba(132,197,255,.23), transparent 72%);
+    filter: blur(24px);
+}
+.bench-panel { min-width: 0; background: var(--workspace); position: relative; overflow: hidden; }
+.bench-gallery { grid-column: span 7; grid-row: span 2; padding: 20px; }
+.bench-categories { grid-column: span 5; grid-row: span 1; padding: 22px; }
+.bench-composer { grid-column: span 3; grid-row: span 1; padding: 22px; }
+.bench-output { grid-column: span 2; grid-row: span 1; padding: 22px; }
+
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.panel-title { font-size: 17px; font-weight: 500; }
+.panel-meta { color: var(--ink-3); font: 11px/1 var(--mono); }
+.search-line {
+    height: 40px;
+    padding: 0 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink-3);
+}
+.search-line svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.search-line span { font-size: 13px; }
+
+.artist-grid { margin-top: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.artist-card {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    overflow: hidden;
+    background: var(--surface);
+    cursor: pointer;
+    transition: transform .45s cubic-bezier(.2,.8,.2,1), border-color .3s ease, box-shadow .35s ease;
+}
+.artist-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,.2); }
+.artist-card.selected { border-color: rgba(132,197,255,.48); box-shadow: 0 22px 38px -28px rgba(132,197,255,.9), inset 0 1px rgba(255,255,255,.04); }
+.artist-image { aspect-ratio: .86; overflow: hidden; background: var(--hover); }
+.artist-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s cubic-bezier(.2,.8,.2,1); }
+.artist-card:hover .artist-image img { transform: scale(1.055); }
+.artist-info { min-height: 70px; padding: 11px 12px; }
+.artist-name { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 500; }
+.artist-name span:last-child { color: var(--ink-3); font: 10px/1 var(--mono); }
+.artist-tag { margin-top: 6px; color: var(--ink-3); font: 10px/1.4 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.category-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.category-row {
+    min-height: 56px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--surface);
+    color: var(--ink-2);
+    transition: background .25s ease, color .25s ease, border-color .25s ease;
+}
+.category-row:hover, .category-row.active { background: var(--hover); color: var(--ink); border-color: var(--line-strong); }
+.category-row.active { box-shadow: inset 2px 0 var(--light); }
+.category-row b { font-size: 13px; font-weight: 500; }
+.category-row span { margin-left: auto; color: var(--ink-3); font: 10px/1 var(--mono); }
+
+.composer-list { display: grid; gap: 8px; }
+.composer-row { padding: 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.composer-top { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.composer-thumb { width: 28px; height: 28px; border-radius: 7px; object-fit: cover; }
+.composer-top strong { min-width: 0; flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.weight { color: var(--ink-2); font: 10px/1 var(--mono); }
+.composer-rail { height: 2px; margin-top: 10px; background: var(--hover); }
+.composer-rail i { display: block; height: 100%; background: var(--light); box-shadow: 0 0 10px rgba(132,197,255,.4); }
+
+.output-code { color: var(--ink-2); font: 10px/1.65 var(--mono); overflow-wrap: anywhere; }
+.output-actions { position: absolute; left: 22px; right: 22px; bottom: 22px; display: grid; gap: 8px; }
+.copy-button {
+    height: 40px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--ink);
+    color: var(--page);
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+.copy-button:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(255,255,255,.1); }
+.copy-button.copied { background: var(--light); }
+
+.accordion-section { padding: 160px 0 190px; background: var(--workspace); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.accordion-wrap { display: grid; grid-template-columns: minmax(300px, .44fr) minmax(0, 1fr); gap: 90px; align-items: start; }
+.sticky-copy { position: sticky; top: 130px; }
+.sticky-copy h2 { max-width: 520px; margin: 0; font-size: clamp(2.7rem, 4.8vw, 5.4rem); line-height: .98; letter-spacing: -.055em; font-weight: 500; }
+.sticky-copy p { max-width: 460px; margin: 28px 0 0; color: var(--ink-2); font-size: 18px; line-height: 1.7; }
+
+.horizontal-accordion { height: 630px; display: flex; gap: 8px; }
+.accordion-card {
+    flex: 1;
+    min-width: 70px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    cursor: pointer;
+    transition: flex .7s cubic-bezier(.22,.75,.18,1), border-color .3s ease, transform .3s ease;
+}
+.accordion-card:hover, .accordion-card.active { flex: 4.6; border-color: var(--line-strong); }
+.accordion-card:hover { transform: translateY(-4px); }
+.accordion-card img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.72) contrast(1.08); transition: transform .8s ease, filter .5s ease; }
+.accordion-card:hover img, .accordion-card.active img { transform: scale(1.05); filter: saturate(.93) contrast(1.04); }
+.accordion-card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,12,14,.08), rgba(11,12,14,.92)); }
+.accordion-card-content { position: absolute; z-index: 2; left: 22px; right: 22px; bottom: 24px; }
+.accordion-card-content strong { display: block; font-size: 22px; font-weight: 500; white-space: nowrap; }
+.accordion-card-content p { width: 330px; max-width: 100%; margin: 8px 0 0; color: #bcc0c6; line-height: 1.55; opacity: 0; transform: translateY(8px); transition: opacity .35s ease .16s, transform .35s ease .16s; }
+.accordion-card:hover p, .accordion-card.active p { opacity: 1; transform: translateY(0); }
+
+.stack-section { min-height: 1550px; padding: 180px 0 230px; }
+.stack-layout { display: grid; grid-template-columns: .7fr 1.3fr; gap: 110px; }
+.stack-copy { align-self: start; position: sticky; top: 128px; }
+.stack-copy h2 { margin: 0; font-size: clamp(2.8rem, 5vw, 5.6rem); line-height: .96; letter-spacing: -.06em; font-weight: 500; }
+.stack-copy p { max-width: 460px; margin: 28px 0 0; color: var(--ink-2); font-size: 18px; line-height: 1.7; }
+.stack-rail { position: relative; min-height: 1100px; }
+.stack-card {
+    position: sticky;
+    top: 120px;
+    min-height: 380px;
+    margin-bottom: 110px;
+    display: grid;
+    grid-template-columns: 1fr .78fr;
+    border: 1px solid var(--line-strong);
+    border-radius: 22px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: 0 40px 80px rgba(0,0,0,.48), 0 30px 80px -58px rgba(132,197,255,.72);
+    transform-origin: center top;
+}
+.stack-card:nth-child(2) { top: 142px; }
+.stack-card:nth-child(3) { top: 164px; }
+.stack-media { min-height: 380px; overflow: hidden; }
+.stack-media img { width: 100%; height: 100%; object-fit: cover; transition: transform .7s ease; }
+.stack-card:hover .stack-media img { transform: scale(1.05); }
+.stack-info { padding: 38px; display: flex; flex-direction: column; justify-content: space-between; }
+.stack-info h3 { margin: 0; font-size: 32px; letter-spacing: -.035em; font-weight: 500; }
+.stack-info p { color: var(--ink-2); line-height: 1.7; }
+.stack-meta { padding-top: 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; color: var(--ink-3); font: 11px/1 var(--mono); }
+
+.notes-section { padding: 160px 0 190px; background: var(--workspace); border-top: 1px solid var(--line); }
+.notes-stage { max-width: 980px; margin: 0 auto; text-align: center; }
+.notes-portraits { display: flex; justify-content: center; margin-bottom: 36px; }
+.notes-portraits img { width: 62px; height: 62px; object-fit: cover; border-radius: 15px; border: 4px solid var(--workspace); margin-left: -10px; filter: saturate(.75); }
+.notes-portraits img:first-child { margin-left: 0; }
+.note-quote { min-height: 150px; margin: 0; font-size: clamp(2rem, 4.2vw, 4.7rem); line-height: 1.07; letter-spacing: -.05em; font-weight: 400; text-wrap: balance; }
+.note-author { margin-top: 26px; color: var(--ink-2); }
+.carousel-controls { display: flex; justify-content: center; gap: 9px; margin-top: 38px; }
+.carousel-button { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); cursor: pointer; transition: background .25s ease, transform .25s ease; }
+.carousel-button:hover { background: var(--hover); transform: translateY(-2px); }
+
+.action-section { padding: 190px 0 60px; }
+.action-panel {
+    position: relative;
+    min-height: 560px;
+    padding: clamp(38px, 7vw, 100px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid var(--line-strong);
+    border-radius: 28px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: 0 50px 120px rgba(0,0,0,.5), 0 30px 100px -58px rgba(132,197,255,.8);
+}
+.action-panel::before {
+    content: "";
+    position: absolute;
+    width: 700px; height: 700px;
+    right: -150px; bottom: -430px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(132,197,255,.18), transparent 68%);
+    filter: blur(12px);
+}
+.action-panel h2 { position: relative; max-width: 1040px; margin: 0; font-size: clamp(3.2rem, 7vw, 7.8rem); line-height: .9; letter-spacing: -.07em; font-weight: 500; }
+.action-panel h2 span { color: var(--ink-3); }
+.action-bottom { position: relative; display: flex; align-items: end; justify-content: space-between; gap: 30px; }
+.action-bottom p { max-width: 530px; margin: 0; color: var(--ink-2); font-size: 18px; line-height: 1.65; }
+
+.footer { min-height: 120px; display: flex; align-items: center; justify-content: space-between; color: var(--ink-3); font: 11px/1.5 var(--mono); }
+.footer-links { display: flex; gap: 24px; }
+
+@media (max-width: 1120px) {
+    .hero-grid { grid-template-columns: 1fr; }
+    .hero-copy { max-width: 880px; }
+    .hero-visual { min-height: 700px; }
+    .visual-frame { left: 12%; }
+    .floating-frame { left: 3%; width: 27%; }
+    .workbench { grid-template-rows: auto; }
+    .bench-gallery { grid-column: span 12; grid-row: auto; }
+    .bench-categories { grid-column: span 12; grid-row: auto; }
+    .bench-composer { grid-column: span 7; grid-row: auto; min-height: 300px; }
+    .bench-output { grid-column: span 5; grid-row: auto; min-height: 300px; }
+    .accordion-wrap, .stack-layout { grid-template-columns: 1fr; gap: 60px; }
+    .sticky-copy, .stack-copy { position: static; }
+}
+
+@media (max-width: 760px) {
+    .wrap { width: min(100% - 28px, 1440px); }
+    .top-nav { grid-template-columns: 1fr auto; }
+    .nav-links { display: none; }
+    .nav-actions .button { display: none; }
+    .hero { min-height: 900px; padding-top: 130px; }
+    .hero h1 { font-size: clamp(3.3rem, 16vw, 5.4rem); }
+    .hero-copy p { font-size: 17px; }
+    .hero-actions { flex-direction: column; align-items: stretch; }
+    .hero-visual { min-height: 500px; }
+    .visual-frame { inset: 20px 0 15px 8%; }
+    .floating-frame { width: 34%; top: 25%; }
+    .section-intro { grid-template-columns: 1fr; }
+    .workspace-section, .accordion-section, .notes-section { padding: 110px 0 130px; }
+    .artist-grid { grid-template-columns: repeat(2, 1fr); }
+    .bench-gallery, .bench-categories, .bench-composer, .bench-output { grid-column: span 12; }
+    .category-list { grid-template-columns: 1fr; }
+    .horizontal-accordion { height: 560px; flex-direction: column; }
+    .accordion-card { min-height: 60px; }
+    .accordion-card:hover, .accordion-card.active { flex: 5; }
+    .stack-card { grid-template-columns: 1fr; }
+    .stack-info { padding: 26px; }
+    .action-section { padding-top: 120px; }
+    .action-panel { min-height: 600px; }
+    .action-bottom { align-items: stretch; flex-direction: column; }
+    .footer { align-items: flex-start; flex-direction: column; justify-content: center; gap: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<main class="page-shell">
+    <nav class="top-nav" aria-label="主导航">
+        <a class="brand" href="#top">
+            <span class="brand-mark">AM</span>
+            <span>Artist Manager</span>
+        </a>
+        <div class="nav-links">
+            <a class="active" href="#workspace">工作台</a>
+            <a href="#library">画师库</a>
+            <a href="#presets">风格预设</a>
+        </div>
+        <div class="nav-actions">
+            <button class="nav-search" aria-label="搜索">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            </button>
+            <a class="button compact primary" href="#workspace">打开工作区</a>
+        </div>
+    </nav>
+
+    <section class="hero" id="top">
+        <div class="wrap hero-grid">
+            <div class="hero-copy">
+                <div class="hero-kicker">Local-first visual archive</div>
+                <h1>让图片成为<br><span>唯一的颜色。</span></h1>
+                <p>一个安静的暗色工作台，容纳密集的画师例图、分类和 Prompt。界面退后一步，让风格本身站到最前面。</p>
+                <div class="hero-actions">
+                    <a class="button primary" href="#workspace">查看暗色工作台</a>
+                    <a class="button" href="#library">浏览视觉语言</a>
+                </div>
+            </div>
+            <div class="hero-visual" aria-label="暗色画师卡片预览">
+                <div class="visual-frame">
+                    <img src="assets-v2/archive-art-06.jpg" alt="暗色绘画作品预览">
+                    <div class="visual-caption">
+                        <div><strong>kureha_tw</strong><span>cinematic portrait · 12.4k</span></div>
+                        <div class="visual-index">SELECTED 03 / 08</div>
+                    </div>
+                </div>
+                <div class="floating-frame">
+                    <img src="assets-v2/archive-art-03.jpg" alt="浅蓝色人物插画预览">
+                    <span class="floating-tag">shirokawa_nagi</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="marquee-band" aria-hidden="true">
+        <div class="marquee-track">
+            <div class="marquee-group">
+                <span class="marquee-item">Illustration 110</span><span class="marquee-item">Painterly 064</span><span class="marquee-item">Linework 041</span><span class="marquee-item">Concept 018</span><span class="marquee-item">Scene 028</span><span class="marquee-item">Local archive 248</span>
+            </div>
+            <div class="marquee-group">
+                <span class="marquee-item">Illustration 110</span><span class="marquee-item">Painterly 064</span><span class="marquee-item">Linework 041</span><span class="marquee-item">Concept 018</span><span class="marquee-item">Scene 028</span><span class="marquee-item">Local archive 248</span>
+            </div>
+        </div>
+    </div>
+
+    <section class="workspace-section" id="workspace">
+        <div class="wrap">
+            <header class="section-intro">
+                <h2>密集，但不争夺注意力。</h2>
+                <p>所有结构只使用同一组冷中性色。色彩留给画师例图；冷蓝光只在选中与主操作时出现。</p>
+            </header>
+
+            <div class="workbench" aria-label="画师管理器暗色工作台">
+                <section class="bench-panel bench-gallery">
+                    <div class="panel-head">
+                        <div><div class="panel-title">画师库</div><div class="panel-meta" style="margin-top:6px">08 VISIBLE / 248 LOCAL</div></div>
+                        <button class="button compact primary">添加画师</button>
+                    </div>
+                    <div class="search-line">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+                        <span>搜索画师名称或 Danbooru tag</span>
+                    </div>
+                    <div class="artist-grid">
+                        <article class="artist-card selected">
+                            <div class="artist-image"><img src="assets-v2/archive-art-03.jpg" alt="白川凪的蓝色人物插画"></div>
+                            <div class="artist-info"><div class="artist-name"><span>白川 凪</span><span>42.1k</span></div><div class="artist-tag">shirokawa_nagi</div></div>
+                        </article>
+                        <article class="artist-card">
+                            <div class="artist-image"><img src="assets-v2/archive-art-04.jpg" alt="桃兎的暖色人物插画"></div>
+                            <div class="artist-info"><div class="artist-name"><span>桃兎</span><span>31.8k</span></div><div class="artist-tag">momoto_m</div></div>
+                        </article>
+                        <article class="artist-card selected">
+                            <div class="artist-image"><img src="assets-v2/archive-art-05.jpg" alt="斩鬼的黑白插画"></div>
+                            <div class="artist-info"><div class="artist-name"><span>斩鬼</span><span>23.9k</span></div><div class="artist-tag">zanki_ink</div></div>
+                        </article>
+                        <article class="artist-card">
+                            <div class="artist-image"><img src="assets-v2/archive-art-08.jpg" alt="远野的风景插画"></div>
+                            <div class="artist-info"><div class="artist-name"><span>远野</span><span>19.5k</span></div><div class="artist-tag">tono_scape</div></div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="bench-panel bench-categories">
+                    <div class="panel-head"><div class="panel-title">分类</div><div class="panel-meta">248 TOTAL</div></div>
+                    <div class="category-list">
+                        <div class="category-row active"><b>全部画师</b><span>248</span></div>
+                        <div class="category-row"><b>插画</b><span>110</span></div>
+                        <div class="category-row"><b>厚涂</b><span>064</span></div>
+                        <div class="category-row"><b>平涂</b><span>041</span></div>
+                        <div class="category-row"><b>线稿</b><span>015</span></div>
+                        <div class="category-row"><b>场景</b><span>018</span></div>
+                    </div>
+                </section>
+
+                <section class="bench-panel bench-composer">
+                    <div class="panel-head"><div class="panel-title">Prompt 编排</div><div class="panel-meta">3.0</div></div>
+                    <div class="composer-list">
+                        <div class="composer-row"><div class="composer-top"><img class="composer-thumb" src="assets-v2/archive-art-03.jpg" alt=""><strong>白川 凪</strong><span class="weight">1.2</span></div><div class="composer-rail"><i style="width:92%"></i></div></div>
+                        <div class="composer-row"><div class="composer-top"><img class="composer-thumb" src="assets-v2/archive-art-05.jpg" alt=""><strong>斩鬼</strong><span class="weight">1.0</span></div><div class="composer-rail"><i style="width:76%"></i></div></div>
+                        <div class="composer-row"><div class="composer-top"><img class="composer-thumb" src="assets-v2/archive-art-04.jpg" alt=""><strong>桃兎</strong><span class="weight">0.8</span></div><div class="composer-rail"><i style="width:61%"></i></div></div>
+                    </div>
+                </section>
+
+                <section class="bench-panel bench-output">
+                    <div class="panel-head"><div class="panel-title">输出</div><div class="panel-meta">SDXL</div></div>
+                    <div class="output-code">(shirokawa_nagi:1.2), (zanki_ink:1.0), (momoto_m:0.8)</div>
+                    <div class="output-actions"><button class="copy-button" id="copy-prompt">复制 Prompt</button></div>
+                </section>
+            </div>
+        </div>
+    </section>
+
+    <section class="accordion-section" id="library">
+        <div class="wrap accordion-wrap">
+            <div class="sticky-copy">
+                <h2>不同风格，保持同一安静表面。</h2>
+                <p>横向展开只改变图像占比，不引入新的强调色。你看到的是风格差异，而不是组件差异。</p>
+            </div>
+            <div class="horizontal-accordion" aria-label="画师风格浏览">
+                <article class="accordion-card active">
+                    <img src="assets-v2/archive-art-03.jpg" alt="清透插画风格">
+                    <div class="accordion-card-content"><strong>清透插画</strong><p>明亮天空、干净轮廓和克制的冷色关系。</p></div>
+                </article>
+                <article class="accordion-card">
+                    <img src="assets-v2/archive-art-06.jpg" alt="电影感厚涂风格">
+                    <div class="accordion-card-content"><strong>电影厚涂</strong><p>强明暗、局部暖光与更厚重的人物塑造。</p></div>
+                </article>
+                <article class="accordion-card">
+                    <img src="assets-v2/archive-art-05.jpg" alt="黑白线稿风格">
+                    <div class="accordion-card-content"><strong>黑白线稿</strong><p>高对比墨色、速度感和明确的笔触方向。</p></div>
+                </article>
+                <article class="accordion-card">
+                    <img src="assets-v2/archive-art-08.jpg" alt="叙事场景风格">
+                    <div class="accordion-card-content"><strong>叙事场景</strong><p>辽阔天空、远景层次与安静的电影构图。</p></div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="stack-section" id="presets">
+        <div class="wrap stack-layout">
+            <div class="stack-copy">
+                <h2>把画师组合成可复用的视觉记忆。</h2>
+                <p>预设卡片像实体样张一样向上堆叠。边界和底光只帮助理解层级，不覆盖图片本身。</p>
+            </div>
+            <div class="stack-rail">
+                <article class="stack-card">
+                    <div class="stack-media"><img src="assets-v2/archive-art-04.jpg" alt="柔和粉彩风格预设"></div>
+                    <div class="stack-info"><div><h3>Soft bloom</h3><p>柔和肤色、低对比阴影与轻微的粉彩空气感。</p></div><div class="stack-meta"><span>3 ARTISTS</span><span>NAI / 3.0</span></div></div>
+                </article>
+                <article class="stack-card">
+                    <div class="stack-media"><img src="assets-v2/archive-art-06.jpg" alt="暗色电影人物风格预设"></div>
+                    <div class="stack-info"><div><h3>Night portrait</h3><p>深色环境、侧向暖光和更集中的人物视线。</p></div><div class="stack-meta"><span>4 ARTISTS</span><span>SDXL / 3.4</span></div></div>
+                </article>
+                <article class="stack-card">
+                    <div class="stack-media"><img src="assets-v2/archive-art-08.jpg" alt="远景叙事风格预设"></div>
+                    <div class="stack-info"><div><h3>Far horizon</h3><p>广角远景、低地平线与细腻的云层色彩过渡。</p></div><div class="stack-meta"><span>2 ARTISTS</span><span>NAI / 2.2</span></div></div>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="notes-section">
+        <div class="wrap notes-stage">
+            <div class="notes-portraits">
+                <img src="assets-v2/onchi-mrs.jpg" alt="创作者头像">
+                <img src="assets-v2/onchi-violinist.jpg" alt="创作者头像">
+                <img src="assets-v2/archive-art-03.jpg" alt="创作者头像">
+            </div>
+            <blockquote class="note-quote" id="note-quote">“例图已经足够丰富，界面只需要把它们安静地组织起来。”</blockquote>
+            <div class="note-author" id="note-author">视觉原则 · Quiet chrome</div>
+            <div class="carousel-controls">
+                <button class="carousel-button" id="note-prev" aria-label="上一条">←</button>
+                <button class="carousel-button" id="note-next" aria-label="下一条">→</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="action-section">
+        <div class="wrap">
+            <div class="action-panel">
+                <h2>保留密度。<br><span>消除噪音。</span></h2>
+                <div class="action-bottom">
+                    <p>默认暗色、统一灰阶、单一冷光。下一步可以把这套视觉系统映射到现有功能页面。</p>
+                    <a class="button primary" href="#workspace">回到工作台</a>
+                </div>
+            </div>
+            <footer class="footer">
+                <span>LOCAL-FIRST ARTIST MANAGER · NOCTURNE CONCEPT</span>
+                <div class="footer-links"><a href="#top">顶部</a><a href="#workspace">工作台</a><a href="#library">画师库</a></div>
+            </footer>
+        </div>
+    </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+const copyButton = document.getElementById('copy-prompt');
+copyButton.addEventListener('click', () => {
+    copyButton.textContent = '已复制';
+    copyButton.classList.add('copied');
+    window.setTimeout(() => {
+        copyButton.textContent = '复制 Prompt';
+        copyButton.classList.remove('copied');
+    }, 1400);
+});
+
+document.querySelectorAll('.artist-card').forEach((card) => {
+    card.addEventListener('click', () => card.classList.toggle('selected'));
+});
+
+document.querySelectorAll('.accordion-card').forEach((card) => {
+    card.addEventListener('mouseenter', () => {
+        document.querySelectorAll('.accordion-card').forEach((item) => item.classList.remove('active'));
+        card.classList.add('active');
+    });
+});
+
+const notes = [
+    ['“例图已经足够丰富，界面只需要把它们安静地组织起来。”', '视觉原则 · Quiet chrome'],
+    ['“选中状态应该像光落在物体上，而不是又贴上一块彩色标签。”', '交互原则 · Ambient focus'],
+    ['“密集不是问题。真正的噪音来自每个元素都试图成为主角。”', '布局原则 · Controlled density']
+];
+let noteIndex = 0;
+const noteQuote = document.getElementById('note-quote');
+const noteAuthor = document.getElementById('note-author');
+function showNote(direction) {
+    noteIndex = (noteIndex + direction + notes.length) % notes.length;
+    if (window.gsap) {
+        gsap.to([noteQuote, noteAuthor], { opacity: 0, y: 12, duration: .2, onComplete: () => {
+            noteQuote.textContent = notes[noteIndex][0];
+            noteAuthor.textContent = notes[noteIndex][1];
+            gsap.to([noteQuote, noteAuthor], { opacity: 1, y: 0, duration: .42, stagger: .05, ease: 'power2.out' });
+        }});
+    } else {
+        noteQuote.textContent = notes[noteIndex][0];
+        noteAuthor.textContent = notes[noteIndex][1];
+    }
+}
+document.getElementById('note-prev').addEventListener('click', () => showNote(-1));
+document.getElementById('note-next').addEventListener('click', () => showNote(1));
+
+if (window.gsap && window.ScrollTrigger && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    gsap.registerPlugin(ScrollTrigger);
+
+    gsap.from('.hero-copy > *', {
+        opacity: 0,
+        y: 34,
+        duration: 1.05,
+        stagger: .1,
+        ease: 'power3.out'
+    });
+    gsap.from('.visual-frame', { opacity: 0, x: 50, scale: .92, duration: 1.25, ease: 'power3.out' });
+    gsap.from('.floating-frame', { opacity: 0, x: -40, y: 20, scale: .88, duration: 1.25, delay: .22, ease: 'power3.out' });
+
+    gsap.utils.toArray('.artist-card, .accordion-card').forEach((card) => {
+        gsap.fromTo(card,
+            { scale: .8, opacity: .25 },
+            {
+                scale: 1,
+                opacity: 1,
+                ease: 'none',
+                scrollTrigger: {
+                    trigger: card,
+                    start: 'top 92%',
+                    end: 'center 58%',
+                    scrub: .65
+                }
+            }
+        );
+        gsap.to(card, {
+            opacity: .24,
+            filter: 'brightness(.55)',
+            ease: 'none',
+            scrollTrigger: {
+                trigger: card,
+                start: 'bottom 22%',
+                end: 'bottom 2%',
+                scrub: .65
+            }
+        });
+    });
+
+    const stackCards = gsap.utils.toArray('.stack-card');
+    stackCards.forEach((card, index) => {
+        if (index < stackCards.length - 1) {
+            gsap.to(card, {
+                scale: 1 - ((stackCards.length - index) * .025),
+                opacity: .42,
+                filter: 'brightness(.62)',
+                ease: 'none',
+                scrollTrigger: {
+                    trigger: stackCards[index + 1],
+                    start: 'top 72%',
+                    end: 'top 22%',
+                    scrub: true
+                }
+            });
+        }
+    });
+}
+</script>
+</body>
+</html>

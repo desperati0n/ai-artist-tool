@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>MIXLAB — 画师风格实验室</title>
+<style>
+:root {
+    --canvas: #eef1ef;
+    --panel: #f8faf8;
+    --panel-strong: #ffffff;
+    --ink: #141a18;
+    --ink-2: #4e5a56;
+    --ink-3: #87918d;
+    --line: #d7ddda;
+    --line-strong: #bac4c0;
+    --accent: #12aa98;
+    --accent-strong: #08786d;
+    --accent-soft: #d8f3ee;
+    --danger: #c94848;
+    --warning: #c88a21;
+    --shadow: 0 14px 35px rgba(24, 42, 36, .08);
+    --font: Inter, "MiSans", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    --mono: "SFMono-Regular", "Cascadia Code", Consolas, monospace;
+}
+
+[data-theme="dark"] {
+    --canvas: #0e1211;
+    --panel: #141917;
+    --panel-strong: #1a201e;
+    --ink: #eef4f1;
+    --ink-2: #b8c2be;
+    --ink-3: #7c8984;
+    --line: #29312e;
+    --line-strong: #3a4641;
+    --accent: #39cfbb;
+    --accent-strong: #76e4d5;
+    --accent-soft: #173b35;
+    --danger: #f07878;
+    --warning: #e4ad4f;
+    --shadow: 0 14px 35px rgba(0, 0, 0, .28);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 14px;
+    overflow: hidden;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    outline-offset: 2px;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+
+.app {
+    width: 100vw;
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 248px minmax(600px, 1fr) 360px;
+    background: var(--canvas);
+}
+
+.eyebrow {
+    color: var(--ink-3);
+    font: 600 10px/1 var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.icon-btn, .plain-btn, .primary-btn, .seg-btn, .tool-btn, .weight-btn {
+    border: 1px solid var(--line);
+    background: var(--panel-strong);
+    transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
+}
+.icon-btn:hover, .plain-btn:hover, .tool-btn:hover { border-color: var(--line-strong); background: var(--panel); }
+.primary-btn { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 700; }
+.primary-btn:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+.primary-btn:active, .plain-btn:active, .icon-btn:active { transform: translateY(1px); }
+
+/* 左侧导航 */
+.sidebar {
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 20;
+}
+.brand {
+    height: 78px;
+    padding: 18px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+}
+.brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: var(--ink);
+    color: var(--panel-strong);
+    display: grid;
+    place-items: center;
+    font: 800 14px/1 var(--mono);
+    letter-spacing: -.05em;
+    position: relative;
+}
+.brand-mark::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--panel);
+}
+.brand-name { font-size: 15px; font-weight: 800; letter-spacing: .01em; }
+.brand-desc { margin-top: 3px; color: var(--ink-3); font-size: 11px; }
+.brand .icon-btn { margin-left: auto; }
+.icon-btn { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; }
+
+.side-scroll { min-height: 0; flex: 1; overflow-y: auto; padding: 18px 14px; }
+.workspace-status {
+    padding: 13px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel-strong);
+    margin-bottom: 18px;
+}
+.status-line { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 12px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.status-meta { margin: 9px 0 0; color: var(--ink-3); font-size: 11px; line-height: 1.55; }
+
+.nav-list { display: grid; gap: 4px; margin-bottom: 22px; }
+.nav-item {
+    height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--ink-2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+}
+.nav-item:hover { background: color-mix(in srgb, var(--line) 42%, transparent); color: var(--ink); }
+.nav-item.active { color: var(--accent-strong); background: var(--accent-soft); font-weight: 700; }
+.nav-icon { width: 20px; text-align: center; font-size: 15px; }
+.nav-count { margin-left: auto; color: var(--ink-3); font: 11px/1 var(--mono); }
+
+.section-head { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 10px; }
+.section-head button { border: 0; background: none; color: var(--accent-strong); font-size: 12px; }
+.sort-select {
+    width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 9px;
+    background: var(--panel-strong); padding: 0 10px; margin-bottom: 16px;
+}
+.category-list { display: grid; gap: 3px; }
+.category {
+    width: 100%; height: 36px; border: 0; border-radius: 8px; padding: 0 10px;
+    background: transparent; display: flex; align-items: center; color: var(--ink-2);
+}
+.category:hover { background: color-mix(in srgb, var(--line) 38%, transparent); }
+.category.active { background: var(--panel-strong); color: var(--ink); box-shadow: inset 3px 0 var(--accent); font-weight: 700; }
+.category span:last-child { margin-left: auto; color: var(--ink-3); font: 11px/1 var(--mono); }
+
+.sidebar-foot { padding: 14px; border-top: 1px solid var(--line); }
+.backup-card { padding: 12px; border-radius: 10px; background: var(--panel-strong); }
+.backup-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; }
+.backup-card p { margin: 6px 0 10px; color: var(--ink-3); font-size: 11px; }
+.backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.plain-btn { height: 34px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+
+/* 主内容 */
+.main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.topbar {
+    min-height: 78px; padding: 15px 22px; border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--panel) 90%, transparent);
+    display: flex; align-items: center; gap: 14px;
+}
+.mobile-menu { display: none; }
+.page-path { min-width: 130px; }
+.page-path strong { display: block; margin-top: 5px; font-size: 15px; }
+.search {
+    max-width: 520px; min-width: 220px; flex: 1; height: 44px; padding: 0 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--panel-strong);
+    display: flex; align-items: center; gap: 10px;
+}
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; }
+.search input::placeholder { color: var(--ink-3); }
+.kbd { color: var(--ink-3); border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 2px 6px; font: 10px/1.4 var(--mono); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.top-actions .primary-btn { height: 40px; padding: 0 15px; border-radius: 10px; }
+.view-switch { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-strong); }
+.seg-btn { border: 0; background: transparent; width: 32px; height: 30px; border-radius: 7px; color: var(--ink-3); }
+.seg-btn.active { background: var(--accent-soft); color: var(--accent-strong); }
+
+.content { min-height: 0; flex: 1; overflow-y: auto; padding: 24px 22px 32px; }
+.content-head { display: flex; align-items: end; gap: 16px; margin-bottom: 19px; }
+.content-head h1 { font-size: clamp(25px, 2.2vw, 34px); letter-spacing: -.04em; margin: 5px 0 0; }
+.content-head p { max-width: 480px; margin: 0 0 4px; color: var(--ink-2); line-height: 1.6; }
+.content-stats { margin-left: auto; text-align: right; white-space: nowrap; }
+.content-stats strong { font: 700 24px/1 var(--mono); }
+.content-stats span { color: var(--ink-3); font-size: 12px; }
+
+.active-filter {
+    display: inline-flex; align-items: center; gap: 7px; margin-bottom: 15px; padding: 7px 10px;
+    border-radius: 8px; background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 700;
+}
+.active-filter[hidden] { display: none; }
+
+.artist-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.artist-card {
+    min-width: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    background: var(--panel-strong); box-shadow: 0 1px 0 rgba(0,0,0,.02);
+    position: relative; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.artist-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--line-strong); }
+.artist-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow); }
+.artist-image { aspect-ratio: 4/5; overflow: hidden; background: var(--line); position: relative; }
+.artist-image img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; transition: transform .35s ease; }
+.artist-card:hover .artist-image img { transform: scale(1.025); }
+.card-index {
+    position: absolute; top: 10px; left: 10px; height: 24px; padding: 0 8px;
+    border-radius: 7px; background: rgba(14, 18, 17, .82); backdrop-filter: blur(8px);
+    color: #fff; display: flex; align-items: center; font: 700 10px/1 var(--mono);
+}
+.select-badge {
+    position: absolute; top: 10px; right: 10px; min-width: 31px; height: 31px; padding: 0 8px;
+    border-radius: 10px; background: var(--accent); color: #fff; display: none; place-items: center;
+    font: 800 11px/1 var(--mono); box-shadow: 0 5px 16px rgba(5, 104, 93, .28);
+}
+.artist-card.selected .select-badge { display: grid; }
+.artist-meta { padding: 13px 13px 14px; }
+.artist-title { display: flex; align-items: center; gap: 8px; }
+.artist-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.heat { margin-left: auto; color: var(--ink-2); font: 10px/1 var(--mono); }
+.artist-tag { margin-top: 5px; color: var(--ink-3); font: 11px/1.3 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.artist-foot { margin-top: 12px; display: flex; align-items: center; gap: 6px; }
+.chip { padding: 4px 7px; border-radius: 6px; background: var(--panel); color: var(--ink-2); font-size: 10px; }
+.social { margin-left: auto; display: flex; gap: 4px; }
+.social i { width: 20px; height: 20px; border: 1px solid var(--line); border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); font: 9px/1 var(--mono); font-style: normal; }
+
+.artist-grid.compact { grid-template-columns: 1fr; gap: 8px; }
+.artist-grid.compact .artist-card { height: 76px; display: grid; grid-template-columns: 62px 1fr; border-radius: 10px; }
+.artist-grid.compact .artist-image { aspect-ratio: auto; }
+.artist-grid.compact .artist-meta { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(120px, .8fr) auto; align-items: center; gap: 12px; padding: 10px 14px; }
+.artist-grid.compact .artist-tag { margin: 0; }
+.artist-grid.compact .artist-foot { margin: 0; }
+.artist-grid.compact .select-badge { top: 22px; left: 15px; right: auto; }
+.artist-grid.compact .card-index { display: none; }
+
+.empty { border: 1px dashed var(--line-strong); border-radius: 14px; min-height: 260px; display: grid; place-items: center; text-align: center; color: var(--ink-3); }
+.empty strong { display: block; margin-bottom: 8px; color: var(--ink); font-size: 16px; }
+
+/* 右侧编排器 */
+.composer {
+    min-width: 0; border-left: 1px solid var(--line); background: var(--panel);
+    display: flex; flex-direction: column; overflow: hidden; z-index: 25;
+}
+.composer-head { min-height: 78px; padding: 17px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; }
+.composer-head h2 { font-size: 16px; margin: 5px 0 0; }
+.composer-count { margin-left: auto; width: 44px; height: 44px; border-radius: 13px; background: var(--accent-soft); color: var(--accent-strong); display: grid; place-items: center; font: 800 15px/1 var(--mono); }
+.composer-close { display: none; margin-left: 8px; }
+.composer-scroll { min-height: 0; flex: 1; overflow-y: auto; padding: 18px; }
+.mix-summary { padding: 14px; border-radius: 12px; background: var(--panel-strong); border: 1px solid var(--line); }
+.mix-summary-line { display: flex; align-items: center; justify-content: space-between; }
+.mix-summary-line strong { font-size: 12px; }
+.mix-summary-line span { color: var(--ink-3); font: 10px/1 var(--mono); }
+.mixbar { height: 8px; display: flex; gap: 2px; margin-top: 12px; overflow: hidden; border-radius: 99px; background: var(--line); }
+.mixbar i { height: 100%; background: var(--accent); transition: width .2s ease; }
+.mixbar i:nth-child(2) { opacity: .72; }
+.mixbar i:nth-child(3) { opacity: .5; }
+.mixbar i:nth-child(n+4) { opacity: .32; }
+
+.format-row { margin: 17px 0 10px; display: flex; align-items: center; justify-content: space-between; }
+.format-switch { display: flex; gap: 4px; }
+.format-switch button { padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-strong); color: var(--ink-3); font: 10px/1 var(--mono); }
+.format-switch button.active { color: var(--accent-strong); border-color: var(--accent); background: var(--accent-soft); }
+
+.selected-list { display: grid; gap: 8px; }
+.selected-item {
+    min-height: 68px; padding: 10px; border: 1px solid var(--line); border-radius: 11px;
+    background: var(--panel-strong); display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px;
+}
+.selected-thumb { width: 34px; height: 46px; border-radius: 7px; object-fit: cover; object-position: top; }
+.selected-who { min-width: 0; }
+.selected-who strong { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+.selected-who span { display: block; margin-top: 4px; color: var(--ink-3); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 9px/1 var(--mono); }
+.weight { display: grid; grid-template-columns: 26px 38px 26px; align-items: center; }
+.weight-btn { height: 28px; padding: 0; background: var(--panel); }
+.weight-btn:first-child { border-radius: 7px 0 0 7px; }
+.weight-btn:last-child { border-radius: 0 7px 7px 0; }
+.weight-value { height: 28px; display: grid; place-items: center; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font: 700 10px/1 var(--mono); }
+.remove-btn { grid-column: 3; justify-self: end; border: 0; background: none; color: var(--ink-3); font-size: 11px; margin-top: 4px; }
+.remove-btn:hover { color: var(--danger); }
+.composer-empty { min-height: 180px; display: grid; place-items: center; text-align: center; color: var(--ink-3); line-height: 1.7; }
+
+.output-panel { padding: 16px 18px 18px; border-top: 1px solid var(--line); background: var(--panel); }
+.output-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.output-head span { color: var(--ink-3); font: 9px/1 var(--mono); }
+.output {
+    width: 100%; min-height: 92px; resize: vertical; padding: 11px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--panel-strong); color: var(--ink-2); font: 11px/1.6 var(--mono); outline: 0;
+}
+.output:focus { border-color: var(--accent); }
+.output-actions { display: grid; grid-template-columns: 1fr 1.7fr; gap: 9px; margin-top: 10px; }
+.output-actions button { height: 40px; border-radius: 10px; }
+
+.floating-compose {
+    display: none; position: fixed; right: 18px; bottom: 18px; z-index: 18; height: 48px; padding: 0 16px;
+    border-radius: 14px; border: 0; background: var(--accent); color: white; box-shadow: 0 12px 30px rgba(5, 104, 93, .25); font-weight: 800;
+}
+
+.scrim { display: none; position: fixed; inset: 0; z-index: 19; background: rgba(6, 12, 10, .36); backdrop-filter: blur(2px); }
+.toast {
+    position: fixed; left: 50%; bottom: 24px; z-index: 100; transform: translate(-50%, 18px);
+    padding: 11px 15px; border-radius: 10px; background: var(--ink); color: var(--panel-strong);
+    box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.modal { display: none; position: fixed; inset: 0; z-index: 90; place-items: center; padding: 20px; background: rgba(5, 10, 8, .48); backdrop-filter: blur(4px); }
+.modal.open { display: grid; }
+.modal-card { width: min(480px, 100%); border: 1px solid var(--line); border-radius: 16px; background: var(--panel-strong); box-shadow: 0 30px 80px rgba(0,0,0,.24); overflow: hidden; }
+.modal-head { padding: 17px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+.modal-head h3 { margin: 0; font-size: 16px; }
+.modal-body { padding: 18px; display: grid; gap: 14px; }
+.field label { display: block; margin-bottom: 6px; color: var(--ink-2); font-size: 12px; font-weight: 700; }
+.field input, .field select { width: 100%; height: 42px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 0 11px; }
+.modal-actions { padding: 14px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
+.modal-actions button { min-width: 86px; height: 38px; border-radius: 9px; }
+
+@media (max-width: 1400px) {
+    .app { grid-template-columns: 220px minmax(540px, 1fr) 330px; }
+    .artist-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .content-head p { display: none; }
+}
+
+@media (max-width: 1120px) {
+    .app { grid-template-columns: 220px minmax(0, 1fr); }
+    .composer { position: fixed; right: 0; top: 0; bottom: 0; width: min(380px, 92vw); transform: translateX(102%); transition: transform .22s ease; box-shadow: -18px 0 50px rgba(0,0,0,.14); }
+    .composer.open { transform: translateX(0); }
+    .composer-close { display: grid; }
+    .floating-compose { display: block; }
+    .scrim.show { display: block; }
+}
+
+@media (max-width: 820px) {
+    body { overflow: auto; }
+    .app { min-height: 100vh; height: auto; display: block; }
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: min(270px, 88vw); transform: translateX(-102%); transition: transform .22s ease; box-shadow: 18px 0 50px rgba(0,0,0,.14); }
+    .sidebar.open { transform: translateX(0); }
+    .main { min-height: 100vh; }
+    .mobile-menu { display: grid; flex: 0 0 auto; }
+    .page-path { display: none; }
+    .topbar { position: sticky; top: 0; z-index: 15; padding: 12px 14px; min-height: 68px; backdrop-filter: blur(14px); }
+    .top-actions .view-switch, .top-actions > .icon-btn { display: none; }
+    .top-actions .primary-btn { width: 40px; padding: 0; font-size: 0; }
+    .top-actions .primary-btn::before { content: '+'; font-size: 20px; }
+    .search { min-width: 0; height: 40px; }
+    .search .kbd { display: none; }
+    .content { padding: 19px 14px 90px; overflow: visible; }
+    .content-head { align-items: start; }
+    .content-stats strong { font-size: 18px; }
+    .artist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .artist-meta { padding: 10px; }
+    .artist-foot { display: none; }
+    .artist-grid.compact .artist-meta { grid-template-columns: 1fr auto; }
+    .artist-grid.compact .artist-tag { display: none; }
+}
+
+@media (max-width: 460px) {
+    .artist-grid { grid-template-columns: 1fr; }
+    .artist-image { aspect-ratio: 5/4; }
+    .content-head h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <div class="brand-mark">MX</div>
+            <div><div class="brand-name">MIXLAB</div><div class="brand-desc">画师风格实验室</div></div>
+            <button class="icon-btn" id="themeBtn" title="切换明暗主题" aria-label="切换明暗主题">◐</button>
+        </div>
+        <div class="side-scroll">
+            <div class="workspace-status">
+                <div class="status-line"><span class="status-dot"></span>本地数据库正常</div>
+                <p class="status-meta">248 位画师 · 8 张高清封面<br>所有数据仅保存在此设备</p>
+            </div>
+
+            <nav class="nav-list" aria-label="主导航">
+                <button class="nav-item active"><span class="nav-icon">▦</span>画师库<span class="nav-count">248</span></button>
+                <button class="nav-item" data-demo="风格预设"><span class="nav-icon">◇</span>风格预设<span class="nav-count">12</span></button>
+                <button class="nav-item" data-demo="最近使用"><span class="nav-icon">↺</span>最近使用<span class="nav-count">08</span></button>
+            </nav>
+
+            <div class="section-head"><span class="eyebrow">分类与排序</span><button data-demo="管理分类">管理</button></div>
+            <select class="sort-select" id="sortSelect" aria-label="画师排序">
+                <option value="heat">按热度排序</option>
+                <option value="name">按名称排序</option>
+                <option value="recent">最近添加</option>
+            </select>
+            <div class="category-list" id="categoryList"></div>
+        </div>
+        <div class="sidebar-foot">
+            <div class="backup-card">
+                <div class="backup-row"><span>数据备份</span><span style="color:var(--accent-strong)">健康</span></div>
+                <p>上次导出：今天 14:26</p>
+                <div class="backup-actions"><button class="plain-btn" data-demo="导入数据">导入</button><button class="plain-btn" data-demo="导出备份">导出</button></div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <button class="icon-btn mobile-menu" id="menuBtn" aria-label="打开导航">☰</button>
+            <div class="page-path"><span class="eyebrow">Workspace / Local</span><strong>主工作区</strong></div>
+            <label class="search">
+                <span aria-hidden="true">⌕</span>
+                <input id="searchInput" type="search" placeholder="搜索画师名称或 Danbooru tag" autocomplete="off">
+                <span class="kbd">Ctrl K</span>
+            </label>
+            <div class="top-actions">
+                <div class="view-switch" aria-label="视图切换">
+                    <button class="seg-btn active" data-view="grid" title="卡片视图">▦</button>
+                    <button class="seg-btn" data-view="compact" title="紧凑视图">☷</button>
+                </div>
+                <button class="icon-btn" data-demo="批量选择" title="批量选择">✓</button>
+                <button class="primary-btn" id="addBtn">＋ 添加画师</button>
+            </div>
+        </header>
+
+        <section class="content">
+            <div class="content-head">
+                <div><span class="eyebrow">Artist Collection</span><h1>画师库</h1></div>
+                <p>查找、比较并组合画师风格。点击任意卡片即可加入右侧编排器。</p>
+                <div class="content-stats"><strong id="visibleCount">08</strong><br><span>当前结果 / 248</span></div>
+            </div>
+            <div class="active-filter" id="activeFilter" hidden></div>
+            <div class="artist-grid" id="artistGrid"></div>
+        </section>
+    </main>
+
+    <aside class="composer" id="composer">
+        <div class="composer-head">
+            <div><span class="eyebrow">Style Composer</span><h2>风格编排器</h2></div>
+            <div class="composer-count" id="composerCount">03</div>
+            <button class="icon-btn composer-close" id="composerClose" aria-label="关闭编排器">×</button>
+        </div>
+        <div class="composer-scroll">
+            <div class="mix-summary">
+                <div class="mix-summary-line"><strong>混合构成</strong><span id="mixTotal">TOTAL 3.0</span></div>
+                <div class="mixbar" id="mixbar"></div>
+            </div>
+            <div class="format-row">
+                <span class="eyebrow">输出格式</span>
+                <div class="format-switch"><button class="active" data-format="sdxl">SDXL</button><button data-format="nai">NAI</button></div>
+            </div>
+            <div class="selected-list" id="selectedList"></div>
+        </div>
+        <div class="output-panel">
+            <div class="output-head"><strong>Prompt 输出</strong><span>可直接编辑</span></div>
+            <textarea class="output" id="output" spellcheck="false"></textarea>
+            <div class="output-actions"><button class="plain-btn" id="clearBtn">清空</button><button class="primary-btn" id="copyBtn">复制 Prompt</button></div>
+        </div>
+    </aside>
+</div>
+
+<button class="floating-compose" id="floatingCompose">编排器 · <span id="floatingCount">3</span></button>
+<div class="scrim" id="scrim"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<div class="modal" id="addModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+        <div class="modal-head"><h3 id="modalTitle">添加画师</h3><button class="icon-btn" id="modalClose">×</button></div>
+        <form id="artistForm">
+            <div class="modal-body">
+                <div class="field"><label for="artistName">显示名称</label><input id="artistName" required placeholder="例如：Mika Pikazo"></div>
+                <div class="field"><label for="artistTag">Danbooru Tag</label><input id="artistTag" required placeholder="例如：mika_pikazo"></div>
+                <div class="field"><label for="artistCategory">分类</label><select id="artistCategory"><option>插画</option><option>厚涂</option><option>平涂</option><option>线稿</option><option>场景</option></select></div>
+            </div>
+            <div class="modal-actions"><button type="button" class="plain-btn" id="modalCancel">取消</button><button type="submit" class="primary-btn">保存画师</button></div>
+        </form>
+    </div>
+</div>
+
+<script>
+const ARTISTS = [
+    { id:'a01', no:'042', name:'白川 凪', tag:'shirakawa_nagi', heat:42100, heatText:'42.1k', cover:'covers/cover-01.png', category:'插画', social:['P','X','F'] },
+    { id:'a02', no:'201', name:'桃兎', tag:'momoto_m', heat:31800, heatText:'31.8k', cover:'covers/cover-02.png', category:'厚涂', social:['X','F'] },
+    { id:'a03', no:'011', name:'斩鬼', tag:'zanki_ink', heat:23900, heatText:'23.9k', cover:'covers/cover-03.png', category:'线稿', social:['X'] },
+    { id:'a04', no:'034', name:'远野', tag:'tono_scape', heat:19500, heatText:'19.5k', cover:'covers/cover-04.png', category:'场景', social:['P'] },
+    { id:'a05', no:'156', name:'橙平', tag:'oudai_flat', heat:15200, heatText:'15.2k', cover:'covers/cover-05.png', category:'平涂', social:['P','F'] },
+    { id:'a06', no:'108', name:'暮羽', tag:'kureha_tw', heat:12400, heatText:'12.4k', cover:'covers/cover-06.png', category:'厚涂', social:['P','X'] },
+    { id:'a07', no:'073', name:'雨森', tag:'amemori', heat:8700, heatText:'8.7k', cover:'covers/cover-07.png', category:'插画', social:['P'] },
+    { id:'a08', no:'089', name:'燭堂', tag:'shokudou_g', heat:6300, heatText:'6.3k', cover:'covers/cover-08.png', category:'厚涂', social:['P','X'] }
+];
+
+const CATEGORIES = [
+    { name:'全部画师', value:'all', count:248 },
+    { name:'插画', value:'插画', count:110 },
+    { name:'厚涂', value:'厚涂', count:64 },
+    { name:'平涂', value:'平涂', count:41 },
+    { name:'线稿', value:'线稿', count:15 },
+    { name:'场景', value:'场景', count:18 }
+];
+
+const state = {
+    category: 'all',
+    query: '',
+    sort: 'heat',
+    view: 'grid',
+    format: 'sdxl',
+    selected: [
+        { id:'a01', weight:1.2 },
+        { id:'a03', weight:1.0 },
+        { id:'a07', weight:0.8 }
+    ]
+};
+
+const $ = selector => document.querySelector(selector);
+const grid = $('#artistGrid');
+const selectedList = $('#selectedList');
+const toast = $('#toast');
+let toastTimer;
+
+function showToast(message) {
+    clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+function getArtist(id) { return ARTISTS.find(a => a.id === id); }
+
+function filteredArtists() {
+    let list = ARTISTS.slice();
+    if (state.category !== 'all') list = list.filter(a => a.category === state.category);
+    if (state.query) {
+        const q = state.query.toLowerCase();
+        list = list.filter(a => a.name.toLowerCase().includes(q) || a.tag.toLowerCase().includes(q));
+    }
+    if (state.sort === 'heat') list.sort((a,b) => b.heat - a.heat);
+    if (state.sort === 'name') list.sort((a,b) => a.tag.localeCompare(b.tag));
+    if (state.sort === 'recent') list.reverse();
+    return list;
+}
+
+function renderCategories() {
+    $('#categoryList').innerHTML = CATEGORIES.map(c => `
+        <button class="category ${state.category === c.value ? 'active' : ''}" data-category="${c.value}">
+            <span>${c.name}</span><span>${String(c.count).padStart(3,'0')}</span>
+        </button>`).join('');
+    document.querySelectorAll('.category').forEach(btn => btn.addEventListener('click', () => {
+        state.category = btn.dataset.category;
+        renderCategories();
+        renderGrid();
+    }));
+}
+
+function renderGrid() {
+    const list = filteredArtists();
+    $('#visibleCount').textContent = String(list.length).padStart(2,'0');
+    grid.classList.toggle('compact', state.view === 'compact');
+    const filter = $('#activeFilter');
+    const tags = [];
+    if (state.category !== 'all') tags.push(`分类：${state.category}`);
+    if (state.query) tags.push(`搜索：${state.query}`);
+    filter.hidden = !tags.length;
+    filter.textContent = tags.length ? `● ${tags.join(' · ')}` : '';
+
+    if (!list.length) {
+        grid.innerHTML = `<div class="empty"><div><strong>没有匹配的画师</strong>尝试更换关键词或清除分类筛选</div></div>`;
+        return;
+    }
+
+    grid.innerHTML = list.map(a => {
+        const selectedIndex = state.selected.findIndex(item => item.id === a.id);
+        return `<article class="artist-card ${selectedIndex >= 0 ? 'selected' : ''}" data-id="${a.id}" tabindex="0" aria-label="${a.name} ${selectedIndex >= 0 ? '已选择' : '未选择'}">
+            <div class="artist-image">
+                <img src="${a.cover}" alt="${a.name} 的画风示例">
+                <span class="card-index">${a.no}</span>
+                <span class="select-badge">S${selectedIndex + 1}</span>
+            </div>
+            <div class="artist-meta">
+                <div><div class="artist-title"><strong>${a.name}</strong><span class="heat">↗ ${a.heatText}</span></div><div class="artist-tag">${a.tag}</div></div>
+                <div class="artist-foot"><span class="chip">${a.category}</span><div class="social">${a.social.map(s => `<i>${s}</i>`).join('')}</div></div>
+            </div>
+        </article>`;
+    }).join('');
+
+    grid.querySelectorAll('.artist-card').forEach(card => {
+        const toggle = () => toggleArtist(card.dataset.id);
+        card.addEventListener('click', toggle);
+        card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    });
+}
+
+function toggleArtist(id) {
+    const index = state.selected.findIndex(item => item.id === id);
+    if (index >= 0) {
+        state.selected.splice(index, 1);
+        showToast('已从编排器移除');
+    } else {
+        state.selected.push({ id, weight:1.0 });
+        showToast('已加入风格编排器');
+    }
+    renderGrid();
+    renderComposer();
+}
+
+function renderComposer() {
+    const count = state.selected.length;
+    $('#composerCount').textContent = String(count).padStart(2,'0');
+    $('#floatingCount').textContent = count;
+    const total = state.selected.reduce((sum, item) => sum + item.weight, 0);
+    $('#mixTotal').textContent = `TOTAL ${total.toFixed(1)}`;
+    $('#mixbar').innerHTML = count ? state.selected.map(item => `<i style="width:${item.weight / total * 100}%"></i>`).join('') : '<i style="width:0"></i>';
+
+    if (!count) {
+        selectedList.innerHTML = '<div class="composer-empty">还没有选择画师<br>从画师库点击卡片开始组合</div>';
+    } else {
+        selectedList.innerHTML = state.selected.map((item, index) => {
+            const a = getArtist(item.id);
+            return `<div class="selected-item" data-id="${a.id}">
+                <img class="selected-thumb" src="${a.cover}" alt="">
+                <div class="selected-who"><strong>${String(index + 1).padStart(2,'0')} · ${a.name}</strong><span>${a.tag}</span></div>
+                <div><div class="weight"><button class="weight-btn" data-step="-0.1">−</button><span class="weight-value">${item.weight.toFixed(1)}</span><button class="weight-btn" data-step="0.1">＋</button></div><button class="remove-btn">移除</button></div>
+            </div>`;
+        }).join('');
+
+        selectedList.querySelectorAll('.selected-item').forEach(row => {
+            const item = state.selected.find(x => x.id === row.dataset.id);
+            row.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => {
+                item.weight = Math.max(.1, Math.min(2, +(item.weight + Number(btn.dataset.step)).toFixed(1)));
+                renderComposer();
+            }));
+            row.querySelector('.remove-btn').addEventListener('click', () => toggleArtist(row.dataset.id));
+        });
+    }
+    renderOutput();
+}
+
+function renderOutput() {
+    const result = state.selected.map(item => {
+        const tag = getArtist(item.id).tag;
+        return state.format === 'sdxl' ? `(${tag}:${item.weight.toFixed(1)})` : `${item.weight.toFixed(1)}::${tag}::`;
+    }).join(', ');
+    $('#output').value = result;
+}
+
+function setOverlay(type, open) {
+    const target = type === 'sidebar' ? $('#sidebar') : $('#composer');
+    target.classList.toggle('open', open);
+    $('#scrim').classList.toggle('show', open);
+}
+
+$('#searchInput').addEventListener('input', e => { state.query = e.target.value.trim(); renderGrid(); });
+$('#sortSelect').addEventListener('change', e => { state.sort = e.target.value; renderGrid(); });
+document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => {
+    state.view = btn.dataset.view;
+    document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('active', x === btn));
+    renderGrid();
+}));
+document.querySelectorAll('[data-format]').forEach(btn => btn.addEventListener('click', () => {
+    state.format = btn.dataset.format;
+    document.querySelectorAll('[data-format]').forEach(x => x.classList.toggle('active', x === btn));
+    renderOutput();
+}));
+document.querySelectorAll('[data-demo]').forEach(btn => btn.addEventListener('click', () => showToast(`${btn.dataset.demo}将在正式版接入`)));
+
+$('#copyBtn').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('#output').value); }
+    catch { $('#output').select(); document.execCommand('copy'); }
+    showToast('Prompt 已复制');
+});
+$('#clearBtn').addEventListener('click', () => { state.selected = []; renderGrid(); renderComposer(); showToast('编排器已清空'); });
+$('#themeBtn').addEventListener('click', () => {
+    const root = document.documentElement;
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+});
+$('#menuBtn').addEventListener('click', () => setOverlay('sidebar', true));
+$('#floatingCompose').addEventListener('click', () => setOverlay('composer', true));
+$('#composerClose').addEventListener('click', () => setOverlay('composer', false));
+$('#scrim').addEventListener('click', () => { setOverlay('sidebar', false); setOverlay('composer', false); });
+
+const modal = $('#addModal');
+function toggleModal(open) { modal.classList.toggle('open', open); if (open) setTimeout(() => $('#artistName').focus(), 20); }
+$('#addBtn').addEventListener('click', () => toggleModal(true));
+$('#modalClose').addEventListener('click', () => toggleModal(false));
+$('#modalCancel').addEventListener('click', () => toggleModal(false));
+modal.addEventListener('click', e => { if (e.target === modal) toggleModal(false); });
+$('#artistForm').addEventListener('submit', e => {
+    e.preventDefault();
+    toggleModal(false);
+    e.target.reset();
+    showToast('演示模式：画师信息已验证');
+});
+
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#searchInput').focus(); }
+    if (e.key === 'Escape') { toggleModal(false); setOverlay('sidebar', false); setOverlay('composer', false); }
+});
+
+renderCategories();
+renderGrid();
+renderComposer();
+</script>
+</body>
+</html>
