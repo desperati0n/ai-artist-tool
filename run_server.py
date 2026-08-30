@@ -207,6 +207,122 @@ def archive_status():
     }
 
 
+def create_archive(archive_path, data_file=DATA_FILE, images_dir=IMAGES_DIR):
+    """Create a complete, portable archive without loading images into memory."""
+    if not os.path.isfile(data_file):
+        raise FileNotFoundError("Local archive has not been initialized")
+    with open(data_file, "r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if not isinstance(manifest, dict):
+        raise ValueError("Local archive metadata must be a JSON object")
+    for key in ("artists", "categories", "presets"):
+        if key in manifest and not isinstance(manifest[key], list):
+            raise ValueError(f"Local archive field must be an array: {key}")
+
+    image_count = 0
+    with zipfile.ZipFile(archive_path, "w", allowZip64=True) as archive:
+        archive.write(data_file, "manifest.json", compress_type=zipfile.ZIP_DEFLATED)
+        if os.path.isdir(images_dir):
+            for name in sorted(os.listdir(images_dir)):
+                image_path = os.path.join(images_dir, name)
+                stem, extension = os.path.splitext(name)
+                if not os.path.isfile(image_path) or extension.lower() not in IMAGE_EXTENSIONS:
+                    continue
+                if not SAFE_ID.fullmatch(stem):
+                    raise ValueError(f"Unsafe local image filename: {name}")
+                archive.write(image_path, f"images/{name}", compress_type=zipfile.ZIP_STORED)
+                image_count += 1
+    return {"artists": len(manifest.get("artists", [])), "images": image_count}
+
+
+def restore_archive_file(archive_path, data_dir=DATA_DIR):
+    """Validate and atomically restore an archive, rolling back on any failure."""
+    data_dir = os.path.abspath(data_dir)
+    parent_dir = os.path.dirname(data_dir)
+    os.makedirs(parent_dir, exist_ok=True)
+    stage_dir = tempfile.mkdtemp(prefix=".artist-manager-stage-", dir=parent_dir)
+    backup_dir = None
+    try:
+        stage_images = os.path.join(stage_dir, "images")
+        stage_thumbnails = os.path.join(stage_dir, "thumbnails")
+        os.makedirs(stage_images, exist_ok=True)
+        os.makedirs(stage_thumbnails, exist_ok=True)
+
+        with zipfile.ZipFile(archive_path, "r", allowZip64=True) as archive:
+            entries = archive.infolist()
+            filenames = [entry.filename for entry in entries]
+            if len(entries) > MAX_ARCHIVE_FILES:
+                raise ValueError("Archive contains too many files")
+            if len(filenames) != len(set(filenames)):
+                raise ValueError("Archive contains duplicate paths")
+            if sum(entry.file_size for entry in entries) > MAX_ARCHIVE_BYTES:
+                raise ValueError("Expanded archive is too large")
+
+            manifest_entry = next((entry for entry in entries if entry.filename == "manifest.json"), None)
+            if not manifest_entry:
+                raise ValueError("manifest.json is missing")
+            if manifest_entry.file_size > MAX_META_BYTES:
+                raise ValueError("manifest.json is too large")
+            manifest = json.loads(archive.read(manifest_entry).decode("utf-8"))
+            if not isinstance(manifest, dict):
+                raise ValueError("Invalid manifest")
+            for key in ("artists", "categories", "presets"):
+                if key in manifest and not isinstance(manifest[key], list):
+                    raise ValueError(f"Invalid manifest field: {key}")
+            manifest.pop("_localArchive", None)
+            manifest.setdefault("version", 14)
+            atomic_write_json(os.path.join(stage_dir, "data.json"), manifest)
+
+            image_count = 0
+            for entry in entries:
+                if entry.is_dir() or entry.filename == "manifest.json":
+                    continue
+                if not entry.filename.startswith("images/"):
+                    raise ValueError(f"Unexpected archive entry: {entry.filename}")
+                name = entry.filename.split("/", 1)[1]
+                stem, extension = os.path.splitext(name)
+                extension = extension.lower()
+                if os.path.basename(name) != name or extension not in IMAGE_EXTENSIONS:
+                    raise ValueError(f"Unsafe image entry: {entry.filename}")
+                if not SAFE_ID.fullmatch(stem):
+                    raise ValueError(f"Unsafe image id: {entry.filename}")
+                target = os.path.join(stage_images, name)
+                with archive.open(entry, "r") as source, open(target, "wb") as destination:
+                    shutil.copyfileobj(source, destination, length=1024 * 1024)
+                with open(target, "rb") as handle:
+                    detected_extension = detect_image_extension(handle.read(32))
+                expected_extension = ".jpg" if extension == ".jpeg" else extension
+                if not detected_extension or detected_extension != expected_extension:
+                    raise ValueError(f"Invalid image entry: {entry.filename}")
+                create_thumbnail(target, stem, stage_thumbnails)
+                image_count += 1
+
+        if os.path.exists(data_dir):
+            backup_dir = tempfile.mkdtemp(
+                prefix=f".{os.path.basename(data_dir)}.restore-backup-",
+                dir=parent_dir,
+            )
+            os.rmdir(backup_dir)
+            os.replace(data_dir, backup_dir)
+        try:
+            os.replace(stage_dir, data_dir)
+            stage_dir = None
+        except Exception:
+            if backup_dir and os.path.exists(backup_dir) and not os.path.exists(data_dir):
+                os.replace(backup_dir, data_dir)
+                backup_dir = None
+            raise
+        if backup_dir and os.path.exists(backup_dir):
+            shutil.rmtree(backup_dir)
+            backup_dir = None
+        return {"artists": len(manifest.get("artists", [])), "images": image_count}
+    finally:
+        if stage_dir and os.path.exists(stage_dir):
+            shutil.rmtree(stage_dir)
+        if backup_dir and os.path.exists(backup_dir) and not os.path.exists(data_dir):
+            os.replace(backup_dir, data_dir)
+
+
 class APIHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=BASE_DIR, **kwargs)
@@ -451,19 +567,10 @@ class APIHandler(SimpleHTTPRequestHandler):
             self.send_json({"error": f"Unable to save metadata: {error}"}, 500)
 
     def export_archive(self):
-        if not os.path.isfile(DATA_FILE):
-            self.send_json({"error": "Local archive has not been initialized"}, 404)
-            return
         fd, zip_path = tempfile.mkstemp(prefix="artist-manager-", suffix=".zip")
         os.close(fd)
         try:
-            with zipfile.ZipFile(zip_path, "w", allowZip64=True) as archive:
-                archive.write(DATA_FILE, "manifest.json", compress_type=zipfile.ZIP_DEFLATED)
-                if os.path.isdir(IMAGES_DIR):
-                    for name in sorted(os.listdir(IMAGES_DIR)):
-                        image_path = os.path.join(IMAGES_DIR, name)
-                        if os.path.isfile(image_path) and name.lower().endswith(IMAGE_EXTENSIONS):
-                            archive.write(image_path, f"images/{name}", compress_type=zipfile.ZIP_STORED)
+            create_archive(zip_path)
             size = os.path.getsize(zip_path)
             filename = f"artist_manager_backup_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.zip"
             self.send_response(200)
@@ -474,6 +581,12 @@ class APIHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             with open(zip_path, "rb") as handle:
                 shutil.copyfileobj(handle, self.wfile, length=1024 * 1024)
+        except FileNotFoundError as error:
+            self.send_json({"error": str(error)}, 404)
+        except (ValueError, json.JSONDecodeError) as error:
+            self.send_json({"error": str(error)}, 400)
+        except Exception as error:
+            self.send_json({"error": f"Unable to export archive: {error}"}, 500)
         finally:
             if os.path.exists(zip_path):
                 os.remove(zip_path)
@@ -487,7 +600,6 @@ class APIHandler(SimpleHTTPRequestHandler):
             self.send_json({"error": "Archive is empty or too large"}, 413)
             return
         fd, upload_path = tempfile.mkstemp(prefix="artist-manager-import-", suffix=".zip")
-        stage_dir = tempfile.mkdtemp(prefix="artist-manager-stage-", dir=BASE_DIR)
         os.close(fd)
         try:
             remaining = length
@@ -498,58 +610,8 @@ class APIHandler(SimpleHTTPRequestHandler):
                         raise ValueError("Archive upload ended early")
                     handle.write(chunk)
                     remaining -= len(chunk)
-            stage_images = os.path.join(stage_dir, "images")
-            stage_thumbnails = os.path.join(stage_dir, "thumbnails")
-            os.makedirs(stage_images, exist_ok=True)
-            os.makedirs(stage_thumbnails, exist_ok=True)
-            with zipfile.ZipFile(upload_path, "r", allowZip64=True) as archive:
-                entries = archive.infolist()
-                if len(entries) > MAX_ARCHIVE_FILES:
-                    raise ValueError("Archive contains too many files")
-                if sum(entry.file_size for entry in entries) > MAX_ARCHIVE_BYTES:
-                    raise ValueError("Expanded archive is too large")
-                manifest_entry = next((entry for entry in entries if entry.filename == "manifest.json"), None)
-                if not manifest_entry:
-                    raise ValueError("manifest.json is missing")
-                if manifest_entry.file_size > MAX_META_BYTES:
-                    raise ValueError("manifest.json is too large")
-                manifest = json.loads(archive.read(manifest_entry).decode("utf-8"))
-                if not isinstance(manifest, dict):
-                    raise ValueError("Invalid manifest")
-                manifest.pop("_localArchive", None)
-                atomic_write_json(os.path.join(stage_dir, "data.json"), manifest)
-                for entry in entries:
-                    if entry.is_dir() or not entry.filename.startswith("images/"):
-                        continue
-                    name = entry.filename.split("/", 1)[1]
-                    if os.path.basename(name) != name or not name.lower().endswith(IMAGE_EXTENSIONS):
-                        raise ValueError(f"Unsafe image entry: {entry.filename}")
-                    target = os.path.join(stage_images, name)
-                    with archive.open(entry, "r") as source, open(target, "wb") as destination:
-                        shutil.copyfileobj(source, destination, length=1024 * 1024)
-                    with open(target, "rb") as handle:
-                        if not detect_image_extension(handle.read(32)):
-                            raise ValueError(f"Invalid image entry: {entry.filename}")
-                    image_id = os.path.splitext(name)[0]
-                    if not SAFE_ID.fullmatch(image_id):
-                        raise ValueError(f"Unsafe image id: {entry.filename}")
-                    create_thumbnail(target, image_id, stage_thumbnails)
-
-            backup_dir = DATA_DIR + ".restore-backup"
-            if os.path.exists(backup_dir):
-                shutil.rmtree(backup_dir)
-            if os.path.exists(DATA_DIR):
-                os.replace(DATA_DIR, backup_dir)
-            try:
-                os.replace(stage_dir, DATA_DIR)
-                stage_dir = None
-            except Exception:
-                if os.path.exists(backup_dir) and not os.path.exists(DATA_DIR):
-                    os.replace(backup_dir, DATA_DIR)
-                raise
-            if os.path.exists(backup_dir):
-                shutil.rmtree(backup_dir)
-            self.send_json({"success": True, "artists": len(manifest.get("artists", [])), "images": archive_status()["imageCount"]})
+            result = restore_archive_file(upload_path)
+            self.send_json({"success": True, **result})
         except (ValueError, json.JSONDecodeError, zipfile.BadZipFile) as error:
             self.send_json({"error": str(error)}, 400)
         except Exception as error:
@@ -557,8 +619,6 @@ class APIHandler(SimpleHTTPRequestHandler):
         finally:
             if os.path.exists(upload_path):
                 os.remove(upload_path)
-            if stage_dir and os.path.exists(stage_dir):
-                shutil.rmtree(stage_dir)
 
 
 if __name__ == "__main__":

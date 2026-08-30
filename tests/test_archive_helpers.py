@@ -1,10 +1,12 @@
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 import migrate_legacy_archive
 import run_server
+from PIL import Image
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +23,51 @@ class EntrypointTests(unittest.TestCase):
 
 
 class ArchiveServerHelperTests(unittest.TestCase):
+    def test_complete_archive_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source_images = source / "images"
+            source_images.mkdir(parents=True)
+            manifest = {
+                "version": 14,
+                "artists": [{"id": "artist-1", "name": "测试画师", "tag": "sample_artist"}],
+                "categories": ["收藏"],
+                "presets": [],
+                "theme": "dark",
+            }
+            (source / "data.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+            Image.new("RGB", (32, 48), "navy").save(source_images / "artist-1.png")
+
+            archive_path = root / "backup.zip"
+            created = run_server.create_archive(archive_path, source / "data.json", source_images)
+            self.assertEqual(created, {"artists": 1, "images": 1})
+
+            target = root / "restored-data"
+            target.mkdir()
+            (target / "data.json").write_text('{"artists":[{"id":"old"}]}', encoding="utf-8")
+            restored = run_server.restore_archive_file(archive_path, target)
+
+            self.assertEqual(restored, {"artists": 1, "images": 1})
+            self.assertEqual(json.loads((target / "data.json").read_text(encoding="utf-8")), manifest)
+            self.assertTrue((target / "images" / "artist-1.png").is_file())
+            self.assertTrue((target / "thumbnails" / "artist-1.jpg").is_file())
+
+    def test_invalid_archive_does_not_replace_existing_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "data"
+            target.mkdir()
+            original = {"artists": [{"id": "keep-me"}]}
+            (target / "data.json").write_text(json.dumps(original), encoding="utf-8")
+            archive_path = root / "invalid.zip"
+            with zipfile.ZipFile(archive_path, "w") as archive:
+                archive.writestr("unexpected.txt", "not a valid archive")
+
+            with self.assertRaisesRegex(ValueError, "manifest.json is missing"):
+                run_server.restore_archive_file(archive_path, target)
+            self.assertEqual(json.loads((target / "data.json").read_text(encoding="utf-8")), original)
+
     def test_image_proxy_url_allowlist(self):
         self.assertTrue(run_server.is_allowed_image_url("https://danbooru.donmai.us/data/image.png"))
         self.assertTrue(run_server.is_allowed_image_url("https://cdn.donmai.us/original/image.jpg"))

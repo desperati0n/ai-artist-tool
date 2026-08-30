@@ -975,15 +975,29 @@
                 if (!response.ok) throw new Error(`删除本地图片失败 (${response.status})`);
                 if (this.imageIndex.delete(String(id))) this.imageCount = Math.max(0, this.imageCount - 1);
             },
-            async importZip(file) {
-                const response = await fetch('/api/import-archive', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/zip' },
-                    body: file
+            async importZip(file, onProgress = () => {}) {
+                return await new Promise((resolve, reject) => {
+                    const request = new XMLHttpRequest();
+                    request.open('POST', '/api/import-archive');
+                    request.setRequestHeader('Content-Type', 'application/zip');
+                    request.upload.addEventListener('progress', (event) => {
+                        if (!event.lengthComputable) return;
+                        onProgress({ phase: 'upload', percent: Math.round((event.loaded / event.total) * 100) });
+                    });
+                    request.upload.addEventListener('load', () => onProgress({ phase: 'restore', percent: null }));
+                    request.addEventListener('error', () => reject(new Error('存档上传失败，请检查本地服务是否仍在运行')));
+                    request.addEventListener('abort', () => reject(new Error('存档导入已取消')));
+                    request.addEventListener('load', () => {
+                        let result = {};
+                        try { result = JSON.parse(request.responseText || '{}'); } catch (_) {}
+                        if (request.status < 200 || request.status >= 300) {
+                            reject(new Error(result.error || `存档恢复失败 (${request.status})`));
+                            return;
+                        }
+                        resolve(result);
+                    });
+                    request.send(file);
                 });
-                const result = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(result.error || `ZIP 恢复失败 (${response.status})`);
-                return result;
             }
         };
 
@@ -1417,18 +1431,26 @@
                 if(!file) return;
                 if (/\.zip$/i.test(file.name || '')) {
                     if (!localArchive.available) return showToast('ZIP 存档需要通过 run_server.py 打开工具后恢复');
-                    if (!confirm('恢复 ZIP 会用备份内容替换当前项目 data 存档。确定继续吗？')) return;
-                    showToast('正在把 ZIP 恢复到项目目录...');
+                    const archiveSize = formatArchiveSize(file.size);
+                    if (!confirm(`将从「${file.name}」（${archiveSize}）恢复完整存档。\n\n恢复成功后会替换当前 data/ 存档；任何校验失败都会保留当前数据。确定继续吗？`)) return;
+                    showArchiveProgress('导入存档', `准备上传 ${file.name}`, 0);
                     try {
                         await localArchive.flush();
                         localArchive.suspendWrites = true;
-                        const result = await localArchive.importZip(file);
-                        showToast(`恢复完成：${result.artists || 0} 位画师，${result.images || 0} 张原图`);
-                        setTimeout(() => location.reload(), 500);
+                        const result = await localArchive.importZip(file, ({ phase, percent }) => {
+                            if (phase === 'upload') {
+                                showArchiveProgress('导入存档', `正在上传 ${archiveSize}`, percent);
+                            } else {
+                                showArchiveProgress('导入存档', '上传完成，正在校验图片、生成缩略图并安全切换存档…', null);
+                            }
+                        });
+                        showArchiveProgress('导入完成', `${result.artists || 0} 位画师 · ${result.images || 0} 张原图，正在刷新页面…`, 100);
+                        setTimeout(() => location.reload(), 900);
                     } catch (error) {
                         localArchive.suspendWrites = false;
                         console.error('ZIP import failed:', error);
-                        showToast(`ZIP 恢复失败：${error.message || error}`);
+                        hideArchiveProgress();
+                        showToast(`存档恢复失败：${error.message || error}`);
                     }
                     return;
                 }
@@ -1738,6 +1760,7 @@
                 showToast("打包中...");
                 try {
                     if (localArchive.available) {
+                        showArchiveProgress('导出存档', '正在同步最新元数据…', null);
                         await localArchive.flush();
                         const link = document.createElement('a');
                         link.href = `/api/export?t=${Date.now()}`;
@@ -1745,7 +1768,8 @@
                         document.body.appendChild(link);
                         link.click();
                         link.remove();
-                        showToast('本地服务正在生成 ZIP；图片不会进入浏览器内存');
+                        showArchiveProgress('导出已开始', '完整存档正在由本地服务生成，请在浏览器下载列表查看进度。', 100);
+                        window.setTimeout(hideArchiveProgress, 2400);
                         return;
                     }
                     const exportedAt = new Date().toISOString();
@@ -1863,6 +1887,7 @@
                         ? `导出完成：${exportObj.artists.length} 位画师，${exportObj.imageCount || 0} 张图片（${failedImages} 张失败）`
                         : `导出完成：${exportObj.artists.length} 位画师，${exportObj.imageCount || 0} 张图片`);
                 } catch (error) {
+                    hideArchiveProgress();
                     console.error('Export failed:', error);
                     const reason = error instanceof Error && error.message ? error.message : String(error || '未知错误');
                     showToast(`导出失败：${reason.slice(0, 28)}`);
@@ -2522,8 +2547,8 @@
                             <i data-lucide="refresh-ccw" class="w-3 h-3 opacity-50"></i>
                         </button>
                         <div class="flex gap-2">
-                            <button onclick="document.getElementById('file-in').click()" class="sidebar-secondary flex-1 py-2 text-xs font-medium">导入</button>
-                            <button onclick="actions.exportData()" class="sidebar-secondary flex-1 py-2 text-xs font-medium">导出</button>
+                            <button onclick="document.getElementById('file-in').click()" class="sidebar-secondary flex-1 py-2 text-xs font-medium">导入存档</button>
+                            <button onclick="actions.exportData()" class="sidebar-secondary flex-1 py-2 text-xs font-medium">导出存档</button>
                             <input type="file" id="file-in" class="hidden" accept=".json,.zip" onchange="actions.importData(this.files[0]);this.value=''">
                         </div>
                         <button onclick="actions.openDanbooruUpdate()" class="sidebar-primary w-full py-2 text-xs font-medium transition-all flex items-center justify-center gap-1.5 active:scale-[0.97]"><i data-lucide="arrow-clockwise" class="w-3.5 h-3.5"></i> 更新数据</button>
@@ -3104,6 +3129,48 @@
             lucide.createIcons(div);
             setTimeout(() => div.remove(), 2000);
         };
+
+        const formatArchiveSize = (bytes) => {
+            const value = Number(bytes) || 0;
+            if (value < 1024) return `${value} B`;
+            const units = ['KB', 'MB', 'GB', 'TB'];
+            let size = value / 1024;
+            let unit = units[0];
+            for (let index = 1; index < units.length && size >= 1024; index++) {
+                size /= 1024;
+                unit = units[index];
+            }
+            return `${size >= 100 ? size.toFixed(0) : size.toFixed(1)} ${unit}`;
+        };
+
+        const showArchiveProgress = (title, detail, percent = null) => {
+            let root = document.getElementById('archive-progress-overlay');
+            if (!root) {
+                root = document.createElement('div');
+                root.id = 'archive-progress-overlay';
+                root.className = 'fixed inset-0 z-[260] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm';
+                root.setAttribute('role', 'dialog');
+                root.setAttribute('aria-modal', 'true');
+                root.innerHTML = `<div class="w-full max-w-md rounded-2xl bg-white dark:bg-[#202020] p-6 text-slate-800 dark:text-[#f1f1ef] shadow-2xl"><div data-archive-title class="text-base font-bold"></div><div data-archive-detail class="mt-2 min-h-10 text-sm leading-6 text-slate-500 dark:text-[#b4b4b0]"></div><div class="mt-5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-[#373737]"><div data-archive-bar class="h-full rounded-full bg-[#20201e] dark:bg-[#e8e3d9] transition-[width] duration-200"></div></div><div data-archive-percent class="mt-2 text-right text-xs font-mono text-slate-400"></div></div>`;
+                document.body.appendChild(root);
+            }
+            root.querySelector('[data-archive-title]').textContent = title;
+            root.querySelector('[data-archive-detail]').textContent = detail;
+            const bar = root.querySelector('[data-archive-bar]');
+            const percentLabel = root.querySelector('[data-archive-percent]');
+            if (Number.isFinite(percent)) {
+                const safePercent = Math.max(0, Math.min(100, Number(percent)));
+                bar.style.width = `${safePercent}%`;
+                bar.classList.remove('animate-pulse');
+                percentLabel.textContent = `${Math.round(safePercent)}%`;
+            } else {
+                bar.style.width = '100%';
+                bar.classList.add('animate-pulse');
+                percentLabel.textContent = '处理中';
+            }
+        };
+
+        const hideArchiveProgress = () => document.getElementById('archive-progress-overlay')?.remove();
 
         const isOriginButtonEligible = (button) => {
             if (!(button instanceof HTMLButtonElement)) return false;
