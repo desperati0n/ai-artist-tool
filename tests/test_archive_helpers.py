@@ -7,6 +7,19 @@ import migrate_legacy_archive
 import run_server
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+class EntrypointTests(unittest.TestCase):
+    def test_index_html_is_the_only_application_entrypoint(self):
+        self.assertTrue((PROJECT_ROOT / "index.html").is_file())
+        self.assertFalse((PROJECT_ROOT / "index-spotlight.html").exists())
+
+    def test_index_loads_the_nai_plugin(self):
+        index_html = (PROJECT_ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn('src="plugins/nai-batch-updater.js"', index_html)
+
+
 class ArchiveServerHelperTests(unittest.TestCase):
     def test_image_proxy_url_allowlist(self):
         self.assertTrue(run_server.is_allowed_image_url("https://danbooru.donmai.us/data/image.png"))
