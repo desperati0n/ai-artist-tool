@@ -17,7 +17,16 @@ from PIL import Image, ImageOps
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PORT = int(os.environ.get("AI_ARTIST_PORT", "8000"))
+DEFAULT_PORT = 8010
+
+
+def configured_port(environ=None):
+    """Return the configured HTTP port, falling back to the project default."""
+    values = os.environ if environ is None else environ
+    return int(values.get("AI_ARTIST_PORT", str(DEFAULT_PORT)))
+
+
+PORT = configured_port()
 DATA_DIR = os.path.abspath(os.environ.get("AI_ARTIST_DATA_DIR", os.path.join(BASE_DIR, "data")))
 IMAGES_DIR = os.path.join(DATA_DIR, "images")
 THUMBNAILS_DIR = os.path.join(DATA_DIR, "thumbnails")

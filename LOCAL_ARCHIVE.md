@@ -13,7 +13,7 @@ python run_server.py
 然后访问：
 
 ```text
-http://localhost:8000/index.html
+http://localhost:8010/index.html
 ```
 
 页面左侧显示“本地存档 · data/”即表示连接成功。直接双击 HTML 或使用 GitHub Pages 时，工具会继续使用原有浏览器存储作为回退。
@@ -55,7 +55,7 @@ ZIP 恢复会完整替换当前本地存档，旧版 JSON 仍可导入并继续�
 
 ## 注意
 
-- 请通过 `run_server.py` 访问页面；本地存档 API 只监听 `localhost:8000`。
+- 请通过 `run_server.py` 访问页面；本地存档 API 只监听 `localhost:8010`（可用 `AI_ARTIST_PORT` 覆盖）。
 - 不要在服务运行时手工编辑 `data/data.json`。
 - `data/` 是主存档，仍建议定期复制整个目录或导出 ZIP 到其他磁盘。
 - ZIP 恢复属于完整恢复，不是合并；JSON 导入才是合并。

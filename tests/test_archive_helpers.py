@@ -23,6 +23,11 @@ class EntrypointTests(unittest.TestCase):
 
 
 class ArchiveServerHelperTests(unittest.TestCase):
+    def test_default_port_and_environment_override(self):
+        self.assertEqual(run_server.DEFAULT_PORT, 8010)
+        self.assertEqual(run_server.configured_port({}), 8010)
+        self.assertEqual(run_server.configured_port({"AI_ARTIST_PORT": "9123"}), 9123)
+
     def test_complete_archive_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
