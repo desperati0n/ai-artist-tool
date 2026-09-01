@@ -21,6 +21,12 @@ class EntrypointTests(unittest.TestCase):
         index_html = (PROJECT_ROOT / "index.html").read_text(encoding="utf-8")
         self.assertIn('src="plugins/nai-batch-updater.js"', index_html)
 
+    def test_index_uses_shared_artist_identity_for_imports(self):
+        index_html = (PROJECT_ROOT / "index.html").read_text(encoding="utf-8")
+        self.assertIn('src="artist_identity.js"', index_html)
+        self.assertGreaterEqual(index_html.count("findEquivalentArtist(state.artists"), 3)
+        self.assertGreaterEqual(index_html.count("await applyArtistDeduplication()"), 4)
+
     def test_nai_batch_ui_uses_batched_result_rendering(self):
         plugin = (PROJECT_ROOT / "plugins" / "nai-batch-updater.js").read_text(encoding="utf-8")
         self.assertIn("const RESULT_RENDER_BATCH_SIZE = 10;", plugin)

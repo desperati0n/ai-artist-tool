@@ -12,6 +12,7 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2320201e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'/%3E%3Cpath d='m15 5 4 4'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+    <script src="artist_identity.js"></script>
     <script>
         window.lucide = {
             createIcons(root = document) {
@@ -1085,14 +1086,59 @@
             composerHasMissingImages: false
         };
 
-        const normalizeArtists = (items) => (Array.isArray(items) ? items : []).filter(a => a && typeof a === 'object').map(a => ({
-            ...a,
-            id: String(a.id),
-            name: a.name || a.tag || 'Unknown',
-            tag: a.tag || a.name || '',
-            categories: Array.isArray(a.categories) ? a.categories : [a.category || '未分类'],
-            socialLinks: Array.isArray(a.socialLinks) ? a.socialLinks : []
-        }));
+        const {
+            normalizeArtist,
+            deduplicateArtists,
+            findEquivalentArtist
+        } = window.ArtistIdentity;
+        const normalizeArtists = (items) => (Array.isArray(items) ? items : [])
+            .filter(a => a && typeof a === 'object')
+            .map(normalizeArtist);
+
+        const remapPresetArtistIds = (presets, idMap) => (Array.isArray(presets) ? presets : []).map(preset => {
+            const seen = new Set();
+            const items = (Array.isArray(preset.items) ? preset.items : []).flatMap(item => {
+                if (!item || typeof item !== 'object') return [];
+                const id = idMap.get(String(item.id)) || String(item.id);
+                if (seen.has(id)) return [];
+                seen.add(id);
+                return [{ ...item, id }];
+            });
+            return { ...preset, items };
+        });
+
+        const applyArtistDeduplication = async () => {
+            const { artists, idMap, duplicateCount } = deduplicateArtists(state.artists);
+            if (!duplicateCount) return 0;
+
+            const duplicateIds = [...idMap.entries()].filter(([sourceId, targetId]) => sourceId !== targetId);
+            for (const [sourceId, targetId] of duplicateIds) {
+                if (!state.pageImages[targetId] && state.pageImages[sourceId]) {
+                    state.pageImages[targetId] = state.pageImages[sourceId];
+                }
+                try {
+                    const targetImage = state.pageImages[targetId] || await db.get(targetId);
+                    if (!targetImage) {
+                        const sourceImage = state.pageImages[sourceId] || await db.get(sourceId);
+                        if (sourceImage) state.pageImages[targetId] = await db.put(targetId, sourceImage);
+                    }
+                } catch (error) {
+                    console.warn(`Unable to preserve duplicate artist image ${sourceId}:`, error);
+                }
+            }
+
+            const remapRecord = (record) => Object.entries(record || {}).reduce((result, [id, value]) => {
+                const targetId = idMap.get(String(id)) || String(id);
+                if (!(targetId in result)) result[targetId] = value;
+                return result;
+            }, {});
+            state.artists = artists;
+            state.presets = remapPresetArtistIds(state.presets, idMap);
+            state.selected = remapRecord(state.selected);
+            state.batchSelected = remapRecord(state.batchSelected);
+            state.selectedOrder = [...new Set((state.selectedOrder || []).map(id => idMap.get(String(id)) || String(id)))];
+            return duplicateCount;
+        };
 
         const writeBrowserMetadata = (key, value) => {
             try {
@@ -1163,6 +1209,12 @@
                     state.categories = Array.isArray(localPayload.categories) ? localPayload.categories.filter(c => typeof c === 'string') : [];
                     state.presets = Array.isArray(localPayload.presets) ? localPayload.presets.filter(p => p && typeof p === 'object').map(p => ({ ...p, id: String(p.id), items: Array.isArray(p.items) ? p.items.map(item => ({ ...item, id: String(item.id) })) : [] })) : [];
                     state.artists = normalizeArtists(localPayload.artists);
+                }
+                const repairedDuplicates = await applyArtistDeduplication();
+                if (repairedDuplicates) {
+                    actions.saveMeta();
+                    actions.savePresets();
+                    console.info(`Merged ${repairedDuplicates} duplicate artist records.`);
                 }
                 renderAppStructure();
                 updateTheme();
@@ -1456,7 +1508,6 @@
                 }
                 const importLargeBackup = async (largeFile) => {
                     if (!largeFile.stream || typeof TextDecoder === 'undefined') throw new Error('当前浏览器不支持大文件流式导入');
-                    const existingTags = new Set(state.artists.map(a => String(a.tag || '').toLowerCase()));
                     const existingPresetNames = new Set(state.presets.map(p => String(p.name || '')));
                     const usedIds = new Set([...state.artists, ...state.presets].map(item => String(item.id)));
                     const importedArtistIds = new Map();
@@ -1486,7 +1537,7 @@
                         cats = [...new Set(cats.length ? cats : ['未分类'])];
                         cats.forEach(c => { if (c !== '未分类' && !state.categories.includes(c)) state.categories.push(c); });
                         const img = typeof item.imageUrl === 'string' ? item.imageUrl : (typeof item.image === 'string' ? item.image : '');
-                        const existing = state.artists.find(a => String(a.tag || '').toLowerCase() === tag.toLowerCase());
+                        const existing = findEquivalentArtist(state.artists, { tag, name });
                         if (existing) {
                             if (item.id !== undefined && item.id !== null) importedArtistIds.set(String(item.id), String(existing.id));
                             if (img.startsWith('data:')) { state.pageImages[existing.id] = await db.put(existing.id, img); importedImages++; }
@@ -1499,7 +1550,6 @@
                             if (item.id !== undefined && item.id !== null) importedArtistIds.set(String(item.id), id);
                             if (img.startsWith('data:')) { state.pageImages[id] = await db.put(id, img); importedImages++; }
                             state.artists.push({ id, name: name || 'Unknown', tag, categories: cats, danbooruCount: parseInt(item.danbooruCount) || 0, socialLinks: Array.isArray(item.socialLinks) ? item.socialLinks : [], createdAt: item.createdAt || Date.now() });
-                            existingTags.add(tag.toLowerCase());
                             addedCount++;
                         }
                     };
@@ -1587,12 +1637,13 @@
                         await feed(text);
                     }
                     await feed(decoder.decode());
+                    const mergedDuplicates = await applyArtistDeduplication();
                     actions.saveMeta();
                     actions.saveCats();
                     actions.savePresets();
                     state.pageImages = {};
                     renderAll();
-                    showToast(`导入完成! 新增 ${addedCount}，更新 ${updatedCount}，图片 ${importedImages} 张`);
+                    showToast(`导入完成! 新增 ${addedCount}，更新 ${updatedCount}，图片 ${importedImages} 张${mergedDuplicates ? `，合并重复 ${mergedDuplicates} 条` : ''}`);
                 };
                 if (file.size > 64 * 1024 * 1024 && file.stream && typeof TextDecoder !== 'undefined') {
                     try { await importLargeBackup(file); } catch (error) { console.error(error); showToast(`导入失败：${error.message || error}`); }
@@ -1656,7 +1707,6 @@
                         if (json.theme === 'light' || json.theme === 'dark') actions.setTheme(json.theme);
                         showToast(`分析 ${list.length} 条数据...`);
                         
-                        const existingTags = new Set(state.artists.map(a => a.tag.toLowerCase()));
                         const existingPresetNames = new Set(state.presets.map(p => p.name));
                         const usedIds = new Set([...state.artists, ...state.presets].map(item => String(item.id)));
                         const importedArtistIds = new Map();
@@ -1689,7 +1739,7 @@
                             
                             const img = typeof item.imageUrl === 'string' ? item.imageUrl : (typeof item.image === 'string' ? item.image : '');
 
-                            let existing = state.artists.find(a => a.tag.toLowerCase() === tag.toLowerCase());
+                            let existing = findEquivalentArtist(state.artists, { tag, name });
                             if(existing) {
                                 if (item.id !== undefined && item.id !== null) importedArtistIds.set(String(item.id), String(existing.id));
                                 // 存在则更新合并属性
@@ -1738,13 +1788,14 @@
                             actions.savePresets();
                         }
 
+                        const mergedDuplicates = await applyArtistDeduplication();
                         actions.saveMeta();
                         actions.saveCats();
                         state.pageImages = {}; 
                         renderAll();
                         showToast(recovered
-                            ? `备份尾部不完整，已恢复 ${addedCount} 条画师、${updatedCount} 条更新`
-                            : `导入完成! 新增 ${addedCount}，更新 ${updatedCount}`);
+                            ? `备份尾部不完整，已恢复 ${addedCount} 条画师、${updatedCount} 条更新${mergedDuplicates ? `，合并重复 ${mergedDuplicates} 条` : ''}`
+                            : `导入完成! 新增 ${addedCount}，更新 ${updatedCount}${mergedDuplicates ? `，合并重复 ${mergedDuplicates} 条` : ''}`);
                     } catch(err) {
                         console.error(err);
                         const reason = err instanceof Error && err.message ? err.message : String(err || '未知错误');
@@ -1929,11 +1980,6 @@
                 const { name, tag, categories, imageUrl, danbooruCount, socialLinks } = state.formData;
                 if(!tag) return showToast("Tag 必填");
                 const id = state.editingId ? String(state.editingId) : String(Date.now());
-                
-                if(imageUrl && imageUrl.startsWith('data:')) {
-                    state.pageImages[id] = await db.put(id, imageUrl);
-                }
-                
                 let finalCats = categories && categories.length > 0 ? categories : ['未分类'];
                 const newMeta = {
                     id, name: name||tag, tag, categories: finalCats,
@@ -1941,6 +1987,12 @@
                     socialLinks: Array.isArray(socialLinks) ? socialLinks.filter(u => u.trim()) : [],
                     createdAt: state.editingId ? (state.artists.find(a=>String(a.id)===id)?.createdAt||Date.now()) : Date.now()
                 };
+                const duplicate = findEquivalentArtist(state.artists, newMeta, state.editingId ? id : null);
+                if (duplicate) return showToast(`画师已存在：${duplicate.name || duplicate.tag}`);
+
+                if(imageUrl && imageUrl.startsWith('data:')) {
+                    state.pageImages[id] = await db.put(id, imageUrl);
+                }
                 
                 if(state.editingId) {
                     state.artists = state.artists.map(a => String(a.id)===id ? newMeta : a);
@@ -2115,13 +2167,10 @@
             const selectedIds = [];
             let addedCount = 0;
             for (const item of parsed) {
-                const needle = item.tag.toLowerCase().trim();
-                const findArtist = (q) => state.artists.find(a => !a._ghost && a.tag && (() => {
-                    const dbTag = (a.tag || '').toLowerCase().trim();
-                    const dbName = (a.name || '').toLowerCase().trim();
-                    return dbTag === q || dbName === q || dbTag.replace(/^artist:\s*/, '') === q;
-                })());
-                let artist = findArtist(needle) || findArtist('artist:' + needle);
+                let artist = findEquivalentArtist(
+                    state.artists.filter(existing => !existing._ghost),
+                    { tag: item.tag, name: item.tag }
+                );
                 if (!artist) {
                     const id = String(Date.now() + Math.random());
                     artist = { id, name: item.tag, tag: item.tag, categories: [targetCategory], danbooruCount: 0, socialLinks: [], createdAt: Date.now() };
@@ -2138,6 +2187,7 @@
                 }
             }
             state.artists = state.artists.filter((artist) => !artist._ghost);
+            await applyArtistDeduplication();
             actions.saveMeta();
             actions.saveCats();
             renderAll();
@@ -2160,22 +2210,7 @@
             let ghostCount = 0;
 
             for (const item of parsed) {
-                const needle = item.tag.toLowerCase().trim();
-
-                // Multi-strategy lookup (case-insensitive):
-                // 1. Exact match on tag or name
-                // 2. DB tag has 'artist:' prefix but input doesn't (or vice versa)
-                const findArtist = (q) => state.artists.find(a => {
-                    const dbTag  = (a.tag  || '').toLowerCase().trim();
-                    const dbName = (a.name || '').toLowerCase().trim();
-                    // Strip 'artist:' from DB tag for comparison
-                    const dbTagStripped = dbTag.replace(/^artist:\s*/, '');
-                    return dbTag === q || dbName === q || dbTagStripped === q;
-                });
-
-                let artist = findArtist(needle);
-                // Also try with 'artist:' prefix prepended (in case DB stores "artist:xxx")
-                if (!artist) artist = findArtist('artist:' + needle);
+                const artist = findEquivalentArtist(state.artists, { tag: item.tag, name: item.tag });
 
                 if (artist) {
                     const id = String(artist.id);
