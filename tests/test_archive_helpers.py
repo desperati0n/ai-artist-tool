@@ -21,6 +21,15 @@ class EntrypointTests(unittest.TestCase):
         index_html = (PROJECT_ROOT / "index.html").read_text(encoding="utf-8")
         self.assertIn('src="plugins/nai-batch-updater.js"', index_html)
 
+    def test_nai_batch_ui_uses_batched_result_rendering(self):
+        plugin = (PROJECT_ROOT / "plugins" / "nai-batch-updater.js").read_text(encoding="utf-8")
+        self.assertIn("const RESULT_RENDER_BATCH_SIZE = 10;", plugin)
+        self.assertIn(
+            "if (completed % RESULT_RENDER_BATCH_SIZE === 0) render({ preserveScroll: true });",
+            plugin,
+        )
+        self.assertNotIn("completed += 1;\n      render();", plugin)
+
 
 class ArchiveServerHelperTests(unittest.TestCase):
     def test_default_port_and_environment_override(self):

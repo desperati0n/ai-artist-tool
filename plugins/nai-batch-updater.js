@@ -9,6 +9,7 @@
   const PLUGIN_ID = 'nai-batch-plugin-root';
   const STYLE_ID = 'nai-batch-plugin-style';
   const GENERATED_JPEG_QUALITY = 0.94;
+  const RESULT_RENDER_BATCH_SIZE = 10;
   const MODEL_OPTIONS = [
     ['nai-diffusion-5-full', 'NAI Diffusion V5 · Full'],
     ['nai-diffusion-5-curated', 'NAI Diffusion V5 · Curated'],
@@ -284,18 +285,18 @@
     local.paused = false;
     local.abort = new AbortController();
     let completed = 0;
+    render({ preserveScroll: true });
     for (const id of ids) {
       if (local.abort.signal.aborted) break;
       const artist = allArtists().find((item) => String(item.id) === String(id));
       if (!artist) continue;
       const result = { artist, status: 'running', approved: false };
       local.results.set(String(id), result);
-      render();
       setStatus(`正在生成 ${completed + 1}/${ids.length}：${artist.name || artist.tag}`, completed, ids.length);
       try { result.dataUrl = await generateOne(artist); result.status = 'done'; }
       catch (error) { result.status = 'error'; result.error = error.message || String(error); addLog('error', `生成失败：${artist.name || artist.tag}`, { artistId: String(artist.id), message: result.error }); }
       completed += 1;
-      render();
+      if (completed % RESULT_RENDER_BATCH_SIZE === 0) render({ preserveScroll: true });
       await new Promise((resolve) => setTimeout(resolve, 350));
       while (local.paused && !local.abort.signal.aborted) {
         setStatus('已暂停，当前结果已返回；点击“继续”提交下一张。', completed, ids.length);
