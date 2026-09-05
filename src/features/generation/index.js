@@ -1,11 +1,12 @@
 import {manager,local} from './session.js';
-import {ensureStyle,render} from './view.js';
+import {ensureStyle,render,refreshGenerationUi} from './view.js';
 import {closeReviewPreview} from './review.js';
 import {allArtists} from './selectors.js';
 import {PLUGIN_ID} from './config.js';
 import {loadImageFlags} from './images.js';
 
 function open(options = {}) {
+    if (local.running || local.reviewingBatch || [...local.results.values()].some(result => result.status === 'saving')) return;
     const managerContext = manager();
     if (!managerContext.state) {
       window.alert('未找到画师管理器状态，请从 index.html 打开此插件。');
@@ -21,6 +22,7 @@ function open(options = {}) {
     local.search = '';
     local.status = '';
     local.progress = 0;
+    local.approvedCount = 0;
     local.paused = false;
     local.logs = [];
     const currentCategory = managerContext.state.currentCategory;
@@ -35,7 +37,7 @@ function open(options = {}) {
       document.body.appendChild(root);
     }
     render();
-    loadImageFlags().then(() => { if (document.getElementById(PLUGIN_ID)) render({ preserveScroll: true }); });
+    loadImageFlags().then(refreshGenerationUi);
   }
 
 function close() {

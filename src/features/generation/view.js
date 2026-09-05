@@ -1,10 +1,11 @@
 import {STYLE_ID,PLUGIN_ID,MODEL_OPTIONS} from './config.js';
 import {local,manager} from './session.js';
+import {syncReviewUi} from './reviewUi.js';
 import {close} from './index.js';
 import {visibleArtists,hasExampleImage,chosenArtists,resultCount,esc,allArtists} from './selectors.js';
 import {run} from './queue.js';
 import {copyLogs,renderLogPanel} from './logs.js';
-import {openReviewPreview,settleReview,exportManagerData} from './review.js';
+import {openReviewPreview,settleReview,settleAllReviews,exportManagerData} from './review.js';
 
 function ensureStyle() {
     if (document.getElementById(STYLE_ID)) return;
@@ -53,7 +54,7 @@ function bind() {
       if (local.running) return;
       captureDraft(root);
       local.search = event.target.value;
-      render();
+      render({ resetArtistScroll: true });
       const searchInput = document.querySelector(`#${PLUGIN_ID} [data-nb-search]`);
       if (searchInput) { searchInput.focus(); searchInput.setSelectionRange(local.search.length, local.search.length); }
     });
@@ -82,10 +83,18 @@ function bind() {
         local.category = button.dataset.nbCategory;
         local.search = '';
         local.status = `已切换到“${local.category}”，旧选择已清空。请检查列表后再全选当前分类。`;
-        render();
+        render({ resetArtistScroll: true });
       });
     });
-    root.addEventListener('click', (event) => { if (categoryMenu?.classList.contains('open') && !categoryMenu.contains(event.target)) closeCategoryMenu(); });
+    root.onclick = async (event) => {
+      if (categoryMenu?.classList.contains('open') && !categoryMenu.contains(event.target)) closeCategoryMenu();
+      const button = event.target.closest('[data-nb-review-expand], [data-nb-review-action]');
+      if (!button || button.disabled) return;
+      const result = local.results.get(button.dataset.nbId);
+      if (!result) return;
+      if (button.hasAttribute('data-nb-review-expand')) openReviewPreview(result);
+      else await settleReview(result, button.dataset.nbReviewAction === 'approve');
+    };
     root.querySelector('[data-nb-select-visible]')?.addEventListener('click', () => { if (local.running) return; const visible = visibleArtists(); visible.forEach((artist) => local.selected.add(String(artist.id))); local.status = `已选择当前分类中的 ${visible.length} 位画师。`; updateSelectionUi(); });
     root.querySelector('[data-nb-select-missing]')?.addEventListener('click', () => { if (local.running) return; const missing = visibleArtists().filter((artist) => !hasExampleImage(artist)); missing.forEach((artist) => local.selected.add(String(artist.id))); local.status = `已选择当前分类中的 ${missing.length} 位无例图画师。`; updateSelectionUi(); });
     root.querySelector('[data-nb-unselect-visible]')?.addEventListener('click', () => { if (local.running) return; visibleArtists().forEach((artist) => local.selected.delete(String(artist.id))); local.status = '已取消当前结果中的画师选择。'; updateSelectionUi(); });
@@ -93,17 +102,12 @@ function bind() {
     root.querySelector('[data-nb-generate]')?.addEventListener('click', () => { local.key = root.querySelector('[data-nb-key]').value.trim(); syncSettings(root); run(chosenArtists().map((artist) => String(artist.id))); });
     root.querySelector('[data-nb-retry]')?.addEventListener('click', () => { local.key = root.querySelector('[data-nb-key]').value.trim(); syncSettings(root); run([...local.results.values()].filter((result) => result.status === 'error').map((result) => String(result.artist.id))); });
     root.querySelector('[data-nb-stop]')?.addEventListener('click', () => local.abort?.abort());
-    root.querySelector('[data-nb-pause]')?.addEventListener('click', () => { if (!local.running) return; local.paused = !local.paused; local.status = local.paused ? '已暂停，当前请求完成后不会提交下一张。' : '已继续，准备提交下一张。'; render(); });
+    root.querySelector('[data-nb-pause]')?.addEventListener('click', () => { if (!local.running) return; local.paused = !local.paused; local.status = local.paused ? '已暂停，当前请求完成后不会提交下一张。' : '已继续，准备提交下一张。'; refreshGenerationUi(); });
     root.querySelector('[data-nb-copy-log]')?.addEventListener('click', copyLogs);
     root.querySelector('[data-nb-clear-log]')?.addEventListener('click', () => { local.logs = []; renderLogPanel(); });
-    root.querySelectorAll('[data-nb-review-expand]').forEach((button) => button.addEventListener('click', () => {
-      const result = local.results.get(button.dataset.nbId);
-      if (result) openReviewPreview(result);
-    }));
-    root.querySelector('[data-nb-approve-all]')?.addEventListener('click', async () => { for (const result of [...local.results.values()]) if (result.status === 'done') await settleReview(result, true); });
-    root.querySelector('[data-nb-reject-all]')?.addEventListener('click', async () => { for (const result of [...local.results.values()]) if (result.status === 'done') await settleReview(result, false); });
+    root.querySelector('[data-nb-approve-all]')?.addEventListener('click', () => settleAllReviews(true));
+    root.querySelector('[data-nb-reject-all]')?.addEventListener('click', () => settleAllReviews(false));
     root.querySelector('[data-nb-export]')?.addEventListener('click', exportManagerData);
-    root.querySelectorAll('[data-nb-review-action]').forEach((button) => button.addEventListener('click', async () => { const result = local.results.get(button.dataset.nbId); if (!result) return; await settleReview(result, button.dataset.nbReviewAction === 'approve'); }));
   }
 
 function captureDraft(root) {
@@ -117,9 +121,9 @@ function updateSelectionUi() {
     if (!root) return;
     root.querySelectorAll('[data-nb-artist]').forEach((input) => { input.checked = local.selected.has(input.dataset.nbArtist); });
     const count = root.querySelector('.nb-count');
-    if (count) count.textContent = `当前 ${visibleArtists().length} · 已选 ${local.selected.size} · 通过 ${[...local.results.values()].filter((result) => result.approved).length}`;
+    if (count) count.textContent = `当前 ${visibleArtists().length} · 已选 ${local.selected.size} · 通过 ${local.approvedCount || 0}`;
     const generate = root.querySelector('[data-nb-generate]');
-    if (generate) generate.disabled = local.running || !local.selected.size;
+    if (generate) generate.disabled = local.running || local.reviewingBatch || resultCount('saving') > 0 || !local.selected.size;
     const status = root.querySelector('[data-nb-status]');
     if (status) status.textContent = local.status || `待生成 ${local.selected.size} 位`;
   }
@@ -139,15 +143,13 @@ function syncSettings(root) {
 function render(options = {}) {
     const root = document.getElementById(PLUGIN_ID);
     if (!root) return;
-    const savedScroll = options.preserveScroll ? {
-      artistList: root.querySelector('[data-nb-artist-list-scroll]')?.scrollTop || 0,
-      reviewList: root.querySelector('[data-nb-review-scroll]')?.scrollTop || 0
-    } : null;
+    const scrollSelectors = ['.nb-body', '.nb-pad', '[data-nb-artist-list-scroll]', '[data-nb-review-scroll]', '[data-nb-log-list]', '.nb-category-list'];
+    const savedScroll = scrollSelectors.map(selector => [selector, root.querySelector(selector)?.scrollTop || 0]);
+    captureDraft(root);
     const s = local.settings;
     const visible = visibleArtists();
     const done = resultCount('done');
     const errors = resultCount('error');
-    const reviewResults = [...local.results.values()].filter((result) => ['done', 'rejected'].includes(result.status));
     const categories = ['全部', '未分类', ...(manager().state?.categories || [])].filter((item, index, list) => list.indexOf(item) === index);
     root.innerHTML = `<div class="nb-window" role="dialog" aria-modal="true" aria-label="NAI 批量更新">
       <div class="nb-head"><div><div class="nb-title">NAI 批量更新</div><div class="nb-sub">把固定提示词应用到画师列表，审查后写回本地例图</div></div><button class="nb-close" data-nb-close aria-label="关闭">×</button></div>
@@ -164,21 +166,42 @@ function render(options = {}) {
           <div class="nb-note">正面提示词支持 <b>{artist}</b>，会自动替换成当前画师 tag。没有占位符时会追加 tag。</div>
         </div></section>
          <section class="nb-col"><div class="nb-col-title">画师列表 · ${allArtists().length}</div><div class="nb-toolbar"><div class="nb-category-slot"><div class="nb-category-menu" data-nb-category-menu style="--nb-category-height:${Math.min(46 + categories.length * 32, 300)}px"><button class="nb-category-toggle" type="button" data-nb-category-toggle aria-label="展开分类列表" aria-expanded="false"><span>分类</span><span class="nb-category-current">· ${esc(local.category)}</span></button><div class="nb-category-list-wrap"><div class="nb-category-list" role="listbox" aria-label="画师分类">${categories.map((category) => `<button class="nb-category-option" type="button" data-nb-category="${esc(category)}" aria-pressed="${local.category === category}">${esc(category)}</button>`).join('')}</div></div></div></div><input class="nb-input" data-nb-search value="${esc(local.search)}" placeholder="搜索名称或 tag"><button class="nb-mini" data-nb-select-missing ${local.imageFlagsReady ? '' : 'disabled'}>选择无例图</button><button class="nb-mini" data-nb-select-visible>全选</button><button class="nb-mini" data-nb-unselect-visible>取消</button></div><div class="nb-actions"><button class="nb-primary" data-nb-generate ${local.running || !local.selected.size ? 'disabled' : ''}>生成选中</button><button class="nb-secondary" data-nb-retry ${local.running || !errors ? 'disabled' : ''}>重试失败</button><button class="nb-secondary" data-nb-pause ${local.running ? '' : 'disabled'}>${local.paused ? '继续' : '暂停'}</button><button class="nb-secondary nb-danger" data-nb-stop ${local.running ? '' : 'disabled'}>停止</button><span class="nb-count">已选 ${local.selected.size} · 通过 ${[...local.results.values()].filter((result) => result.approved).length}</span></div><div class="nb-progress"><i data-nb-progress style="width:${local.progress}%"></i></div><div class="nb-status" data-nb-status>${local.running ? (local.status || '准备中…') : (local.status || `待生成 ${local.selected.size} 位 · 已生成 ${done}${errors ? ` · 失败 ${errors}` : ''}`)}</div><div class="nb-scroll" data-nb-artist-list-scroll>${visible.length ? visible.map((artist) => { const result = local.results.get(String(artist.id)); const status = result?.status === 'done' ? '<span class="nb-badge review">待审</span>' : result?.status === 'rejected' ? '<span class="nb-badge">已拒绝</span>' : result?.status === 'error' ? '<span class="nb-badge err">失败</span>' : result?.status === 'running' ? '<span class="nb-badge">生成中</span>' : ''; const example = hasExampleImage(artist) ? '<span class="nb-badge ok">有例图</span>' : ''; return `<label class="nb-artist"><input type="checkbox" data-nb-artist="${esc(String(artist.id))}" ${local.selected.has(String(artist.id)) ? 'checked' : ''}><span><strong>${esc(artist.name || artist.tag)}</strong><small>${esc(artist.tag || '')}</small></span><span class="nb-artist-badges">${example}${status}</span></label>`; }).join('') : '<div class="nb-empty">没有匹配的画师</div>'}</div></section>
-        <section class="nb-col"><div class="nb-col-title">审查结果 · ${reviewResults.length}</div><div class="nb-actions"><button class="nb-secondary" data-nb-approve-all ${done ? '' : 'disabled'}>全部通过</button><button class="nb-secondary nb-danger" data-nb-reject-all ${done ? '' : 'disabled'}>全部拒绝</button></div><div class="nb-scroll" data-nb-review-scroll><div class="nb-review-grid">${reviewResults.length ? reviewResults.map((result) => `<article class="nb-review"><img src="${esc(result.dataUrl || '')}" alt=""><div class="nb-review-body"><div class="nb-review-name">${esc(result.artist.name || result.artist.tag)}</div><div class="nb-review-state">${result.approved ? '已通过' : result.status === 'rejected' ? '已拒绝' : '待审查'}</div><div class="nb-review-buttons"><button class="nb-secondary nb-review-expand" data-nb-review-expand data-nb-id="${esc(String(result.artist.id))}">全屏查看</button><button class="nb-secondary" data-nb-review-action="approve" data-nb-id="${esc(String(result.artist.id))}">通过</button><button class="nb-secondary nb-danger" data-nb-review-action="reject" data-nb-id="${esc(String(result.artist.id))}">拒绝</button></div></div></article>`).join('') : '<div class="nb-empty">生成结果会出现在这里</div>'}</div></div><div class="nb-log-panel"><div class="nb-log-head"><span data-nb-log-count>请求记录 · ${local.logs.length}</span><div><button class="nb-mini" data-nb-copy-log>复制</button><button class="nb-mini" data-nb-clear-log>清空</button></div></div><div class="nb-log-list" data-nb-log-list>${local.logs.length ? local.logs.map((entry) => `<details class="nb-log-entry ${esc(entry.level)}" ${entry.level === 'error' ? 'open' : ''}><summary><span class="nb-log-meta">${esc(entry.time)} · ${esc(entry.level.toUpperCase())}</span> ${esc(entry.message)}</summary>${entry.details ? `<pre class="nb-log-details">${esc(entry.details)}</pre>` : ''}</details>`).join('') : '<div class="nb-empty">暂无请求记录</div>'}</div></div></section>
+        <section class="nb-col"><div class="nb-col-title" data-nb-review-count>审查结果</div><div class="nb-actions"><button class="nb-secondary" data-nb-approve-all ${done ? '' : 'disabled'}>全部通过</button><button class="nb-secondary nb-danger" data-nb-reject-all ${done ? '' : 'disabled'}>全部拒绝</button></div><div class="nb-scroll" data-nb-review-scroll><div class="nb-review-grid"></div></div><div class="nb-log-panel"><div class="nb-log-head"><span data-nb-log-count>请求记录 · ${local.logs.length}</span><div><button class="nb-mini" data-nb-copy-log>复制</button><button class="nb-mini" data-nb-clear-log>清空</button></div></div><div class="nb-log-list" data-nb-log-list>${local.logs.length ? local.logs.map((entry) => `<details class="nb-log-entry ${esc(entry.level)}" ${entry.level === 'error' ? 'open' : ''}><summary><span class="nb-log-meta">${esc(entry.time)} · ${esc(entry.level.toUpperCase())}</span> ${esc(entry.message)}</summary>${entry.details ? `<pre class="nb-log-details">${esc(entry.details)}</pre>` : ''}</details>`).join('') : '<div class="nb-empty">暂无请求记录</div>'}</div></div></section>
        </div><div class="nb-footer"><span class="nb-sub">通过后立即写回例图；拒绝后保留画师选择，方便下一轮生成</span><button class="nb-secondary" data-nb-export>导出当前存档</button></div>
     </div>`;
     bind();
-    updateSelectionUi();
-    if (savedScroll) {
-      const restoreScroll = () => {
-        const artistList = root.querySelector('[data-nb-artist-list-scroll]');
-        const reviewList = root.querySelector('[data-nb-review-scroll]');
-        if (artistList) artistList.scrollTop = savedScroll.artistList;
-        if (reviewList) reviewList.scrollTop = savedScroll.reviewList;
-      };
-      restoreScroll();
-      requestAnimationFrame(restoreScroll);
+    refreshGenerationUi();
+    for (const [selector, scrollTop] of savedScroll) {
+      const container = root.querySelector(selector);
+      if (container) container.scrollTop = options.resetArtistScroll && selector === '[data-nb-artist-list-scroll]' ? 0 : scrollTop;
     }
   }
 
-export {ensureStyle,bind,captureDraft,updateSelectionUi,syncSettings,render};
+function refreshGenerationUi() {
+    const root = document.getElementById(PLUGIN_ID);
+    if (!root) return;
+    root.querySelectorAll('[data-nb-category],[data-nb-category-toggle],[data-nb-search],[data-nb-select-visible],[data-nb-select-missing],[data-nb-unselect-visible],[data-nb-artist]').forEach(control => { control.disabled = local.running; });
+    const missing = root.querySelector('[data-nb-select-missing]');
+    if (missing) missing.disabled = local.running || !local.imageFlagsReady;
+    const retry = root.querySelector('[data-nb-retry]');
+    if (retry) retry.disabled = local.running || local.reviewingBatch || resultCount('saving') > 0 || !resultCount('error');
+    const pause = root.querySelector('[data-nb-pause]');
+    if (pause) { pause.disabled = !local.running; pause.textContent = local.paused ? '继续' : '暂停'; }
+    const stop = root.querySelector('[data-nb-stop]');
+    if (stop) stop.disabled = !local.running;
+    const labels = { done: '待审', saving: '保存中', running: '生成中', error: '失败' };
+    const artists = new Map(allArtists().map(artist => [String(artist.id), artist]));
+    root.querySelectorAll('[data-nb-artist]').forEach(input => {
+      const id = input.dataset.nbArtist;
+      const artist = artists.get(id);
+      const badges = input.closest('.nb-artist').querySelector('.nb-artist-badges');
+      const status = local.results.get(id)?.status;
+      const markup = (artist && hasExampleImage(artist) ? '<span class="nb-badge ok">有例图</span>' : '') +
+        (labels[status] ? `<span class="nb-badge ${status === 'done' ? 'review' : status === 'error' ? 'err' : ''}">${labels[status]}</span>` : '');
+      if (badges.innerHTML !== markup) badges.innerHTML = markup;
+    });
+    syncReviewUi(root);
+    updateSelectionUi();
+  }
+
+export {ensureStyle,bind,captureDraft,updateSelectionUi,syncSettings,render,refreshGenerationUi};

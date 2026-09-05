@@ -1,7 +1,8 @@
 import {PLUGIN_ID} from './config.js';
 import {esc} from './selectors.js';
 import {manager,local} from './session.js';
-import {render} from './view.js';
+import {refreshGenerationUi} from './view.js';
+import {addLog} from './logs.js';
 import {convertGeneratedImageToJpeg} from './images.js';
 import {showToast} from '../../shared/notifications.js';
 import {renderAll} from '../../app/render.ts';
@@ -33,42 +34,76 @@ function openReviewPreview(result) {
     preview.focus({ preventScroll: true });
   }
 
-async function settleReview(result, approved) {
-    if (!result || result.status !== 'done') return;
+async function settleReview(result, approved, options = {}) {
+    if (!result || result.status !== 'done' || local.results.get(String(result.artist.id)) !== result) return false;
     const managerContext = manager();
     const id = String(result.artist.id);
     const name = result.artist.name || result.artist.tag || id;
+    const startedAt = performance.now();
     if (approved) {
       result.status = 'saving';
       local.status = `正在整理 ${name} 的图片并写入本地存档...`;
-      render({ preserveScroll: true });
+      refreshGenerationUi();
       try {
-        let imageData = result.dataUrl;
-        try {
-          imageData = await convertGeneratedImageToJpeg(result.dataUrl);
-        } catch (error) {
-          console.warn('Generated image JPEG conversion failed; preserving original image.', error);
+        if (!result.preparedImage) {
+          try {
+            result.preparedImage = await convertGeneratedImageToJpeg(result.dataUrl);
+          } catch (error) {
+            console.warn('Generated image JPEG conversion failed; preserving original image.', error);
+            result.preparedImage = result.dataUrl;
+          }
         }
-        const storedImage = await managerContext.db?.put(result.artist.id, imageData, { stripMetadata: true });
-        if (managerContext.state?.pageImages) managerContext.state.pageImages[id] = storedImage || imageData;
+        const conversionMs = Math.round(performance.now() - startedAt);
+        const saveStartedAt = performance.now();
+        const storedImage = await managerContext.db.put(result.artist.id, result.preparedImage, { stripMetadata: true });
+        if (managerContext.state?.pageImages) managerContext.state.pageImages[id] = storedImage || result.preparedImage;
+        addLog('success', `例图保存完成：${name}`, {artistId: id, conversionMs, saveMs: Math.round(performance.now() - saveStartedAt)});
       } catch (error) {
         result.status = 'done';
         local.status = `保存 ${name} 失败：${error?.message || error}`;
         if (typeof showToast === 'function') showToast(`图片保存失败：${error?.message || error}`);
-        render({ preserveScroll: true });
-        return;
+        refreshGenerationUi();
+        return false;
       }
-      managerContext.actions?.saveMeta();
-      if (typeof renderAll === 'function') renderAll();
+      if (!options.deferManagerRefresh) {
+        managerContext.actions?.saveMeta();
+        renderAll();
+      }
+      local.imageIds.add(id);
+      local.approvedCount += 1;
       local.selected.delete(id);
       local.status = `已通过 ${name}，例图已立即写回画师资料；已取消选择。`;
-      if (typeof showToast === 'function') showToast(`已更新 ${name} 的例图`);
+      if (!options.deferManagerRefresh) showToast(`已更新 ${name} 的例图`);
     } else {
       local.status = `已拒绝 ${name}，保留选择，下一轮仍可生成。`;
     }
     local.results.delete(id);
     closeReviewPreview();
-    render({ preserveScroll: true });
+    refreshGenerationUi();
+    return true;
+  }
+
+async function settleAllReviews(approved) {
+    if (local.reviewingBatch) return;
+    const results = [...local.results.values()].filter(result => result.status === 'done');
+    if (!results.length) return;
+    local.reviewingBatch = true;
+    let settled = 0;
+    refreshGenerationUi();
+    try {
+      for (const result of results) {
+        if (await settleReview(result, approved, {deferManagerRefresh: true})) settled += 1;
+      }
+    } finally {
+      local.reviewingBatch = false;
+      if (approved && settled) {
+        manager().actions.saveMeta();
+        renderAll();
+      }
+      local.status = `本轮${approved ? '通过' : '拒绝'} ${settled}/${results.length} 张${settled < results.length ? '；未处理的例图仍保留在审查区' : ''}。`;
+      showToast(local.status);
+      refreshGenerationUi();
+    }
   }
 
 function exportManagerData() {
@@ -77,4 +112,4 @@ function exportManagerData() {
     else window.alert('当前管理器没有可用的导出功能。');
   }
 
-export {closeReviewPreview,openReviewPreview,settleReview,exportManagerData};
+export {closeReviewPreview,openReviewPreview,settleReview,settleAllReviews,exportManagerData};

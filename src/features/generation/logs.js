@@ -3,6 +3,8 @@ import {PLUGIN_ID} from './config.js';
 import {esc} from './selectors.js';
 import {updateSelectionUi} from './view.js';
 
+const renderedLogs = new WeakMap();
+
 function formatLogDetails(details) {
     if (details == null || details === '') return '';
     if (typeof details === 'string') return details;
@@ -22,8 +24,23 @@ function renderLogPanel() {
     if (count) count.textContent = `请求记录 · ${local.logs.length}`;
     const list = root.querySelector('[data-nb-log-list]');
     if (!list) return;
-    list.innerHTML = local.logs.length ? local.logs.map((entry) => `<details class="nb-log-entry ${esc(entry.level)}" ${entry.level === 'error' ? 'open' : ''}><summary><span class="nb-log-meta">${esc(entry.time)} · ${esc(entry.level.toUpperCase())}</span> ${esc(entry.message)}</summary>${entry.details ? `<pre class="nb-log-details">${esc(entry.details)}</pre>` : ''}</details>`).join('') : '<div class="nb-empty">暂无请求记录</div>';
-    list.scrollTop = list.scrollHeight;
+    const scrollTop = list.scrollTop;
+    const followLatest = list.scrollHeight - list.clientHeight - scrollTop < 24;
+    const nodes = renderedLogs.get(list) || new Map();
+    if (!renderedLogs.has(list)) list.replaceChildren();
+    const current = new Set(local.logs);
+    for (const [entry, node] of nodes) {
+      if (!current.has(entry)) { node.remove(); nodes.delete(entry); }
+    }
+    if (local.logs.length) list.querySelector('.nb-empty')?.remove();
+    for (const entry of local.logs) {
+      if (nodes.has(entry)) continue;
+      list.insertAdjacentHTML('beforeend', `<details class="nb-log-entry ${esc(entry.level)}" ${entry.level === 'error' ? 'open' : ''}><summary><span class="nb-log-meta">${esc(entry.time)} · ${esc(entry.level.toUpperCase())}</span> ${esc(entry.message)}</summary>${entry.details ? `<pre class="nb-log-details">${esc(entry.details)}</pre>` : ''}</details>`);
+      nodes.set(entry, list.lastElementChild);
+    }
+    if (!local.logs.length) list.innerHTML = '<div class="nb-empty">暂无请求记录</div>';
+    renderedLogs.set(list, nodes);
+    list.scrollTop = followLatest ? list.scrollHeight : scrollTop;
   }
 
 async function copyLogs() {

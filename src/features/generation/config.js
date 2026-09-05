@@ -6,8 +6,6 @@ const STYLE_ID = 'nai-batch-plugin-style';
 
 const GENERATED_JPEG_QUALITY = 0.94;
 
-const RESULT_RENDER_BATCH_SIZE = 10;
-
 const MODEL_OPTIONS = [
     ['nai-diffusion-5-full', 'NAI Diffusion V5 · Full'],
     ['nai-diffusion-5-curated', 'NAI Diffusion V5 · Curated'],
@@ -31,4 +29,4 @@ const DEFAULTS = {
     quality: true
   };
 
-export {PLUGIN_ID,STYLE_ID,GENERATED_JPEG_QUALITY,RESULT_RENDER_BATCH_SIZE,MODEL_OPTIONS,DEFAULTS};
+export {PLUGIN_ID,STYLE_ID,GENERATED_JPEG_QUALITY,MODEL_OPTIONS,DEFAULTS};

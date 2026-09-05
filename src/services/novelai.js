@@ -58,7 +58,11 @@ async function generateOne(artist) {
       try { body = await response.text(); } catch (_) {}
       addLog('error', `HTTP ${response.status}：${label}`, { artistId: String(artist.id), status: response.status, correlationId, contentType: response.headers.get('content-type') || '', elapsedMs: Math.round(performance.now() - startedAt), body: body.slice(0, 4000) });
       const detail = `HTTP ${response.status}${body ? ` ${body.slice(0, 180)}` : ''}`;
-      throw new Error(detail);
+      const error = new Error(detail);
+      error.status = response.status;
+      const retryAfter = response.headers.get('retry-after');
+      error.retryAfterMs = retryAfter ? Math.max(0, Number.isFinite(Number(retryAfter)) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now()) : 0;
+      throw error;
     }
     const type = response.headers.get('content-type') || '';
     if (type.includes('json')) {
@@ -70,17 +74,19 @@ async function generateOne(artist) {
     }
     const responseBlob = await response.blob();
     addLog('success', `收到响应：${label}`, { artistId: String(artist.id), status: response.status, correlationId, contentType: type, elapsedMs: Math.round(performance.now() - startedAt), bytes: responseBlob.size });
+    const unpackStartedAt = performance.now();
     const zip = await JSZip.loadAsync(responseBlob);
     const entry = Object.values(zip.files).find((file) => !file.dir && /\.(png|jpe?g|webp)$/i.test(file.name));
     if (!entry) throw new Error('响应 ZIP 中没有图片');
-    addLog('success', `图片解包完成：${label}`, { artistId: String(artist.id), file: entry.name });
     const blob = await entry.async('blob');
-    return await new Promise((resolve, reject) => {
+    const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+    addLog('success', `图片解包完成：${label}`, { artistId: String(artist.id), file: entry.name, unpackMs: Math.round(performance.now() - unpackStartedAt), totalMs: Math.round(performance.now() - startedAt) });
+    return dataUrl;
   }
 
 export {loadJsZip,promptFor,makeCorrelationId,generateOne};
