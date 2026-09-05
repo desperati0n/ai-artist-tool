@@ -349,6 +349,10 @@
             object-fit: cover;
             object-position: center;
         }
+        .artist-card-media > .artist-card-image-selected {
+            filter: grayscale(1);
+            opacity: .68;
+        }
         .glass-card,
         .dark .glass-card {
             border: 1px solid var(--nt-line);
