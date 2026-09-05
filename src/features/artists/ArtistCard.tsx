@@ -13,10 +13,10 @@ export function ArtistCard({ artist: a }: {artist: Artist}) {
     onClick={() => actions.toggleCardClick(id)} onKeyDown={e => { if(e.target===e.currentTarget && (e.key==='Enter'||e.key===' ')) { e.preventDefault(); actions.toggleCardClick(id); } }}
     className={`group glass-card spotlight-card rounded-2xl overflow-hidden cursor-pointer relative hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ${selected?(state.batchMode?'batch-selected':'card-selected'):''}`}>
     <div className="artist-card-media bg-slate-200 dark:bg-slate-800">
-      <ArchiveImage id={id} className={`artist-card-image ${selected ? 'artist-card-image-selected' : ''}`} />
+      <ArchiveImage id={id} className="artist-card-image" />
       <div className="absolute inset-0 flex items-center justify-center text-slate-300 -z-10"><Icon name="image" className="w-8 h-8" /></div>
       <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-md flex items-center gap-1 z-20 font-bold"><Icon name="flame" className="w-3 h-3 text-orange-400" />{a.danbooruCount||0}</div>
-      {!state.batchMode && !selected && <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex flex-col justify-end p-3 z-10"><div className="flex justify-end gap-2 mb-8">
+      {!state.batchMode && <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex flex-col justify-end p-3 z-10"><div className="flex justify-end gap-2 mb-8">
         <Button aria-label={`编辑 ${a.name}`} onClick={e => {e.stopPropagation(); void actions.openEdit(id);}} className="p-2 bg-white text-slate-700 rounded-full shadow-lg hover:text-indigo-600 transition-transform hover:scale-110"><Icon name="edit-3" /></Button>
         <Button aria-label={`删除 ${a.name}`} onClick={e => {e.stopPropagation(); void actions.deleteArtist(id);}} className="p-2 bg-white text-red-500 rounded-full shadow-lg hover:bg-red-500 hover:text-white transition-transform hover:scale-110"><Icon name="trash-2" /></Button>
       </div></div>}

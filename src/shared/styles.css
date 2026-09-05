@@ -349,10 +349,6 @@
             object-fit: cover;
             object-position: center;
         }
-        .artist-card-media > .artist-card-image-selected {
-            filter: grayscale(1);
-            opacity: .68;
-        }
         .glass-card,
         .dark .glass-card {
             border: 1px solid var(--nt-line);
@@ -449,11 +445,11 @@
         .glass-card.card-selected:hover,
         .dark .glass-card.card-selected:hover {
             outline: 0 !important;
-            background: var(--nt-surface) !important;
-            transform: scale(.96);
+            background: var(--nt-primary) !important;
+            transform: none;
         }
         .glass-card.batch-selected,
-        .glass-card.batch-selected:hover { outline: 0 !important; background: var(--nt-danger) !important; transform: scale(.96); }
+        .glass-card.batch-selected:hover { outline: 0 !important; background: var(--nt-danger) !important; transform: none; }
         .card-selected::before,
         .card-selected::after,
         .batch-selected::before,

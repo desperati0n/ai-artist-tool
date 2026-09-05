@@ -48,20 +48,6 @@ describe('React application workflows',()=>{
     await user.click(screen.getByRole('button',{name:'确定'}));
     expect(state.artists.find(a=>a.id==='b')?.categories).toEqual(['厚涂','收藏']);
   });
-  it('restores an artist card after removing it from the prompt composer',async()=>{
-    const user=await mount();
-    const card=screen.getByRole('button',{name:'选择画师 Alpha'});
-    await user.click(card);
-    expect(card).toHaveClass('card-selected');
-    expect(document.getElementById('img-a')).toHaveClass('artist-card-image-selected');
-    expect(screen.queryByRole('button',{name:'编辑 Alpha'})).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button',{name:'移除 Alpha'}));
-    expect(card).not.toHaveClass('card-selected');
-    expect(document.getElementById('img-a')).not.toHaveClass('artist-card-image-selected');
-    expect(card).toHaveAttribute('aria-pressed','false');
-    expect(screen.getByRole('button',{name:'编辑 Alpha'})).toBeInTheDocument();
-    expect(screen.getByRole('button',{name:'删除 Alpha'})).toBeInTheDocument();
-  });
   it('creates and edits artists with names containing markup as plain text',async()=>{
     const user=await mount();
     await user.click(screen.getByRole('button',{name:'添加'}));
