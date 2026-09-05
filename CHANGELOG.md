@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### 界面修正与启动入口
+
+- 修复 React SVG 搜索图标的垂直居中，保持搜索框高度稳定。
+- 统一例图卡片光效与内侧圆角，移除边缘裁切的阴影，并按卡片边框和缩放校正指针坐标。
+- Python 服务启动后自动打开 React 新版，根地址跳转 `/react.html`；保留 `/index.html`，支持 `--no-browser`。
+
 ### React + TypeScript + Vite 重构
 
 - 新增 `react.html` 和按功能组织的 `src/`，同时完整保留原有 `index.html`，便于并行验证与回退。

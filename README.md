@@ -74,7 +74,9 @@ npm run build
 python run_server.py
 ```
 
-然后打开 `http://localhost:8010/react.html`。生产构建与旧版页面共享同一个来源和 `data/` 存档。
+服务启动后会自动在浏览器打开 `http://localhost:8010/react.html`，终端也会显示这个新版链接。直接访问 `http://localhost:8010/` 同样跳转新版；旧版仍可从 `/index.html` 访问。生产构建与旧版页面共享同一个来源和 `data/` 存档。
+
+不需要自动打开浏览器时，使用 `python run_server.py --no-browser`。自定义端口 `AI_ARTIST_PORT` 同时适用于服务和自动打开的链接。
 
 ### 使用保留的旧版本
 

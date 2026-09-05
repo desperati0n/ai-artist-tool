@@ -54,6 +54,9 @@ class APIHandler(SimpleHTTPRequestHandler):
 
     def do_HEAD(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/":
+            self.redirect_to_frontend()
+            return
         if parsed.path == "/react.html" or parsed.path.startswith("/assets/"):
             self.serve_frontend_asset(parsed.path, head_only=True)
             return
@@ -67,6 +70,9 @@ class APIHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/":
+            self.redirect_to_frontend()
+            return
         if parsed.path == "/react.html" or parsed.path.startswith("/assets/"):
             self.serve_frontend_asset(parsed.path)
             return
@@ -89,6 +95,13 @@ class APIHandler(SimpleHTTPRequestHandler):
             self.export_archive()
             return
         super().do_GET()
+
+    def redirect_to_frontend(self):
+        self.send_response(302)
+        self.send_header("Location", "/react.html")
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def serve_frontend_asset(self, request_path, head_only=False):
         asset_path = resolve_frontend_asset(request_path)

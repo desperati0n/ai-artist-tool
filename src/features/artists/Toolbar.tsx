@@ -15,7 +15,7 @@ export function Toolbar() {
     <Button onClick={actions.toggleBatchMode} className="ml-1 px-3 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 hover:bg-slate-300 rounded-full whitespace-nowrap">退出</Button>
   </div>;
   return <div className="tool-header">
-    {s.viewMode==='presets' ? <div className="text-sm font-semibold">风格预设</div> : <label className="tool-search"><span className="sr-only">搜索画师</span><Icon name="search" /><input type="search" value={s.searchQuery} onChange={e => actions.handleSearch(e.target.value)} placeholder="搜索名称或 Danbooru tag" /></label>}
+    {s.viewMode==='presets' ? <div className="text-sm font-semibold">风格预设</div> : <label className="tool-search"><span className="sr-only">搜索画师</span><Icon name="search" className="tool-search-icon w-4 h-4" /><input type="search" value={s.searchQuery} onChange={e => actions.handleSearch(e.target.value)} placeholder="搜索名称或 Danbooru tag" /></label>}
     <div className="tool-status">{s.viewMode==='presets'?`${s.presets.length} 个预设`:`${s.artists.length} 位画师 · ${s.currentCategory}`}</div>
     <div className="tool-actions">
       <Button onClick={() => toggleToolPanel('filters')} className="utility-button panel-toggle filter-toggle" aria-label="打开筛选面板"><Icon name="funnel" /></Button>

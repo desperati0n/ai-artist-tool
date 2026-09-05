@@ -210,8 +210,8 @@
             gap: 1rem;
             width: 100%;
         }
-        .tool-search { position: relative; }
-        .tool-search i { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); color: var(--nt-faint); }
+        .tool-search { position: relative; display: block; }
+        .tool-search > .tool-search-icon { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); display: block; color: var(--nt-faint); pointer-events: none; }
         .tool-search input {
             width: 100%;
             min-height: 36px;
@@ -360,7 +360,7 @@
             transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
         }
         .glass-card:hover {
-            border-color: #d2d2d2;
+            border-color: var(--nt-line);
             transform: translateY(-1px) !important;
             box-shadow: 0 2px 8px rgba(0,0,0,.04) !important;
         }
@@ -378,7 +378,8 @@
             content: "";
             position: absolute;
             inset: 0;
-            border-radius: inherit;
+            /* Absolute layers occupy the padding box inside the card's 1px border. */
+            border-radius: calc(var(--nt-radius-lg) - 1px);
             pointer-events: none;
             opacity: 0;
             transition: opacity .18s ease;
@@ -392,8 +393,9 @@
                 var(--nt-spot-mid) 34%,
                 transparent 72%
             );
-            filter: drop-shadow(0 0 5px var(--nt-spot-shadow));
+            /* Keep the ring inside its clip; a filtered shadow is cut off at edges. */
             -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             -webkit-mask-composite: xor;
             mask-composite: exclude;
         }
