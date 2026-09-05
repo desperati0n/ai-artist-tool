@@ -1,6 +1,6 @@
 <div align="center">
 
-# AI Artist Manager v15
+# AI Artist Manager v16（重构预览）
 
 **本地优先的画师资料、风格预设与 Prompt 编排工具。**
 
@@ -18,7 +18,9 @@
 
 AI Artist Manager 用来整理画师 Tag、预览图、分类与常用风格组合，并把选中的画师快速转换成 NovelAI 或 Stable Diffusion 可用的 Prompt。
 
-v15 现在统一使用 `index.html` 作为唯一入口。它保留原有数据和功能，将工作流程重新组织为分类、画师浏览和 Prompt 编排三个明确区域。
+项目正在迁移到 React + TypeScript + Vite。新的 `react.html` 按画师、Prompt、预设、生图、存储和存档等功能拆分源码；原有 `index.html` 完整保留，作为稳定版本和交互对照。
+
+两个版本继续读取 `nai-v12-*` LocalStorage 键和 `NAIArtistDB_V12` IndexedDB，并使用相同的本地存档 API。通过 Vite 开发服务器访问时，浏览器存储因端口不同而属于另一个来源；通过构建后的 Python 本地服务访问可以继续使用同一 `data/` 存档。
 
 ## v15 更新重点
 
@@ -53,7 +55,28 @@ v15 现在统一使用 `index.html` 作为唯一入口。它保留原有数据�
 
 打开 [v15 GitHub Pages 页面](https://desperati0n.github.io/ai-artist-tool/index.html)。在线页面适合体验；重要数据仍建议定期导出备份。
 
-### 本地使用
+### 使用 React 重构版本
+
+需要 Node.js 和 Python。在两个终端中运行：
+
+```powershell
+python run_server.py
+npm install
+npm run dev
+```
+
+开发页面为 `http://127.0.0.1:5173/react.html`，Vite 会把 `/api` 转发给 `localhost:8010` 的本地存档服务。
+
+生成生产文件并通过 Python 服务访问：
+
+```powershell
+npm run build
+python run_server.py
+```
+
+然后打开 `http://localhost:8010/react.html`。生产构建与旧版页面共享同一个来源和 `data/` 存档。
+
+### 使用保留的旧版本
 
 1. 在仓库右上角选择 `Code` → `Download ZIP`，或者运行：
 
@@ -62,7 +85,7 @@ v15 现在统一使用 `index.html` 作为唯一入口。它保留原有数据�
    ```
 
 2. 解压或进入项目目录。
-3. 双击 `index.html` 使用 v15 界面。
+3. 双击 `index.html` 使用原有 v15 界面。
 
 应用不需要后端服务。页面通过 CDN 加载 Tailwind CSS 和 Phosphor Icons，因此首次打开或缓存缺失时需要网络连接。
 
@@ -111,7 +134,13 @@ v15 现在统一使用 `index.html` 作为唯一入口。它保留原有数据�
 
 | 文件 | 用途 |
 | --- | --- |
-| `index.html` | 唯一的 v15 黑曜石 × 骨白界面。 |
+| `index.html` | 完整保留的 v15 单文件界面和回退入口。 |
+| `react.html` | React 重构版本的 Vite 源入口。 |
+| `src/app/` | 应用状态、生命周期、顶层布局和兼容动作入口。 |
+| `src/features/` | 画师、Prompt、预设、生图和存档功能模块。 |
+| `src/storage/` | 浏览器存储和 Python 本地存档适配。 |
+| `server/` | 拆分后的 Python 配置、图片、存档和 HTTP 路由。 |
+| `package.json` | 开发、测试、类型检查和构建命令。 |
 | `fetch_danbooru_counts.py` | 可选的 Danbooru 批量更新脚本。 |
 | `plugins/nai-batch-updater.js` | NAI 批量生图与例图审查插件。 |
 | `CHANGELOG.md` | 版本更新记录。 |

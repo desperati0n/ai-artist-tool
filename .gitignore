@@ -5,3 +5,9 @@ __pycache__/
 data/
 backups/
 data.before-legacy-import-*/
+
+# Frontend dependencies and generated output.
+node_modules/
+dist/
+coverage/
+.refactor-tmp/

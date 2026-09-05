@@ -1,10 +1,40 @@
 # Danbooru 整合与画师管理工具架构参考文档
 
-本文档详细介绍了将 Python 抓取脚本的核心功能整合进单文件 HTML5 画师管理工具的架构设计、函数对比与实现原理。旨在作为学习和二次开发的参考指南。
+本文档后半部分保留了 v15 单文件实现的历史说明，便于核对迁移前的行为。v16 重构版本采用 React + TypeScript + Vite，原有 `index.html` 不删除、不改名，新的入口是 `react.html`。
+
+## v16 重构架构
+
+```text
+src/
+├── app/                 # 启动、状态、动作和顶层布局
+├── features/
+│   ├── artists/         # 画师、分类、筛选和批量操作
+│   ├── composer/        # Prompt 解析、权重、预览和拖拽
+│   ├── presets/         # 风格预设
+│   ├── generation/      # NAI 设置、队列、日志和审核
+│   └── archive/         # JSON/ZIP 导入导出
+├── services/            # Danbooru 和 NovelAI 网络请求
+├── storage/             # IndexedDB 与本地存档适配
+└── shared/              # 类型、组件、图标和交互基础设施
+
+server/
+├── config.py            # 路径和限制配置
+├── images.py            # 原图、缩略图和图片校验
+├── archive.py           # 备份、恢复和原子写入
+└── routes.py            # HTTP 路由与构建产物托管
+```
+
+React 只负责界面生命周期；Prompt 解析、画师去重、存储和网络请求仍是独立模块。`state` 保持稳定引用，旧动作在完成修改后调用通知函数，React 通过订阅刷新界面。这一过渡层允许逐步迁移并保持既有存档格式。
+
+按钮从指针进入点扩散的填充由 `Button` 组件实现。卡片聚光、分类指示条、权重饼图、悬浮例图和拖拽排序分别保留在独立交互模块中。组件不再依赖 MutationObserver 改写 React 生成的按钮 DOM。
 
 ---
 
-## 1. 架构总览
+## v15 历史架构
+
+---
+
+## 1. 架构总览（v15）
 
 该画师管理工具是一个基于 **单文件 (HTML + CSS + Vanilla JS)** 架构的前端应用。整个应用的流程、数据状态及 UI 渲染均在前端完成，不依赖后台服务器。
 

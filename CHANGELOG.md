@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### React + TypeScript + Vite 重构
+
+- 新增 `react.html` 和按功能组织的 `src/`，同时完整保留原有 `index.html`，便于并行验证与回退。
+- 将画师、分类、Prompt、预设、生图、存储、导入导出和网络请求拆分成独立模块；Python 本地服务同步拆为 `server/` 包。
+- 保留按钮指针扩散、卡片聚光、分类滑动指示、权重饼图、画师悬浮预览和拖拽排序，并为关键交互加入回归测试。
+- 保持原有 LocalStorage、IndexedDB 和 `data/` 存档格式，Python 服务可直接托管 `npm run build` 生成的 React 页面。
+- 修复预设保存未采用显式拖拽顺序，以及悬浮预览名称可能被当作 HTML 解析的问题。
+- 新增统一的 `npm run check`，覆盖 React 工作流、存储兼容、旧 JS 测试、Python 测试、类型检查和生产构建。
+
 ### 画师数据
 
 - 导入画师时统一忽略名称中的大小写、空格和下划线差异，`A(apple)`、`A_(apple)`、`A (apple)` 现在只保留一位画师。

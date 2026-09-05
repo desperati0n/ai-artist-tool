@@ -13,8 +13,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class EntrypointTests(unittest.TestCase):
-    def test_index_html_is_the_only_application_entrypoint(self):
+    def test_legacy_entrypoint_is_preserved_alongside_react_source(self):
         self.assertTrue((PROJECT_ROOT / "index.html").is_file())
+        self.assertTrue((PROJECT_ROOT / "react.html").is_file())
+        self.assertTrue((PROJECT_ROOT / "src" / "main.tsx").is_file())
         self.assertFalse((PROJECT_ROOT / "index-spotlight.html").exists())
 
     def test_index_loads_the_nai_plugin(self):
@@ -26,6 +28,26 @@ class EntrypointTests(unittest.TestCase):
         self.assertIn('src="artist_identity.js"', index_html)
         self.assertGreaterEqual(index_html.count("findEquivalentArtist(state.artists"), 3)
         self.assertGreaterEqual(index_html.count("await applyArtistDeduplication()"), 4)
+
+    def test_react_entrypoint_uses_vite_and_keeps_legacy_storage_keys(self):
+        package = json.loads((PROJECT_ROOT / "package.json").read_text(encoding="utf-8"))
+        self.assertIn("vite build", package["scripts"]["build"])
+        keys = (PROJECT_ROOT / "src" / "storage" / "keys.js").read_text(encoding="utf-8")
+        self.assertIn("nai-v12-meta", keys)
+        self.assertIn("NAIArtistDB_V12", keys)
+
+    def test_built_frontend_asset_resolution_stays_inside_dist(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "assets").mkdir()
+            entry = root / "react.html"
+            asset = root / "assets" / "app.js"
+            entry.write_text("entry", encoding="utf-8")
+            asset.write_text("asset", encoding="utf-8")
+            self.assertEqual(Path(run_server.resolve_frontend_asset("/react.html", root)), entry)
+            self.assertEqual(Path(run_server.resolve_frontend_asset("/assets/app.js", root)), asset)
+            self.assertIsNone(run_server.resolve_frontend_asset("/index.html", root))
+            self.assertIsNone(run_server.resolve_frontend_asset("/assets/%2e%2e/react.html", root))
 
     def test_nai_batch_ui_uses_batched_result_rendering(self):
         plugin = (PROJECT_ROOT / "plugins" / "nai-batch-updater.js").read_text(encoding="utf-8")

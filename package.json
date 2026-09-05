@@ -1,0 +1,39 @@
+{
+  "name": "ai-artist-tool",
+  "private": true,
+  "version": "16.0.0",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "serve": "python run_server.py",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:legacy": "node --test tests/test_artist_identity.js",
+    "test:python": "python -m unittest discover -s tests -p test_*.py",
+    "check": "npm run test && npm run test:legacy && npm run test:python && npm run build"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "jszip": "^3.10.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "^26.4.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "autoprefixer": "^10.5.5",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  }
+}
