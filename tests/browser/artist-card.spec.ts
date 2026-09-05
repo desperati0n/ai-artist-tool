@@ -1,5 +1,31 @@
 import {expect, test} from '@playwright/test';
 
+test('paging legacy duplicate IDs leaves no extra cards or rows', async ({page}) => {
+  const artists=Array.from({length:53},(_,i)=>({
+    id:i<48?`legacy-${Math.floor(i/2)}`:`artist-${i}`,
+    name:i===0?'Alpha':`Artist ${i}`,tag:`artist_${i}`,categories:[],
+  }));
+  await page.route('**/api/load',route=>route.fulfill({json:{
+    artists,categories:[],presets:[],theme:'light',
+    _localArchive:{initialized:true,imageIndex:{}},
+  }}));
+  const errors:string[]=[];
+  page.on('console',message=>{if(message.type()==='error') errors.push(message.text());});
+  await page.reload();
+  const cards=page.locator('#grid-container > .grid > .glass-card');
+  await expect(cards.locator('h3')).toHaveText(artists.slice(0,24).map(a=>a.name));
+  const initialHeight=await page.locator('#grid-container').evaluate(el=>el.scrollHeight);
+  let current=1;
+  for(const target of [2,3,2,1,2,1]) {
+    await page.getByRole('button',{name:target>current?'下一页':'上一页'}).click();
+    current=target;
+    await expect(cards.locator('h3')).toHaveText(artists.slice((target-1)*24,target*24).map(a=>a.name));
+    if(target<3) expect(await page.locator('#grid-container').evaluate(el=>el.scrollHeight)).toBe(initialHeight);
+    expect(await page.locator('#grid-container').evaluate(el=>el.scrollTop)).toBe(0);
+  }
+  expect(errors.filter(message=>/same key|unique.*key/i.test(message))).toEqual([]);
+});
+
 test.beforeEach(async ({page}) => {
   await page.goto('/react.html');
   await expect(page.getByRole('button', {name: '选择画师 Alpha', exact: true})).toBeVisible();
