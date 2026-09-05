@@ -385,19 +385,8 @@
             transition: opacity .18s ease;
         }
         .spotlight-card::before {
-            z-index: 31;
-            padding: 2px;
-            background: radial-gradient(
-                var(--spot-radius) circle at var(--spot-x) var(--spot-y),
-                var(--nt-spot-strong),
-                var(--nt-spot-mid) 34%,
-                transparent 72%
-            );
-            /* Keep the ring inside its clip; a filtered shadow is cut off at edges. */
-            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
+            /* The masked ring produced a browser-dependent white edge around artwork. */
+            display: none;
         }
         .spotlight-card::after {
             z-index: 30;

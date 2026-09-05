@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { actions } from '../../app/actions';
 import { notify, useAppState } from '../../app/store';
+import { updateCardVisual } from '../../app/render';
 import { Button } from '../../shared/components/Button';
 import { Icon } from '../../shared/components/Icon';
 import { closeToolPanels } from '../../shared/interactions/panels';
@@ -46,7 +47,15 @@ export function Composer() {
     const rect=event.currentTarget.getBoundingClientRect();
     event.currentTarget.classList.add(event.clientY<rect.top+rect.height/2?'drag-over-top':'drag-over-bottom');
   };
-  const remove=(id:string) => {delete s.selected[id];s.selectedOrder=s.selectedOrder.filter(x=>x!==id);if(id.startsWith('_ghost_')) s.artists=s.artists.filter(a=>a.id!==id);hideArtistPreview();notify();};
+  const remove=(id:string) => {
+    delete s.selected[id];
+    s.selectedOrder=s.selectedOrder.filter(x=>x!==id);
+    if(id.startsWith('_ghost_')) s.artists=s.artists.filter(a=>a.id!==id);
+    hideArtistPreview();
+    // Keep the grid card in sync immediately, including when the pointer is still over it.
+    updateCardVisual(id);
+    notify();
+  };
   const copy=async () => {
     try {await navigator.clipboard.writeText(draft);showToast('咒语已复制');}
     catch {textarea.current?.select();if(document.execCommand('copy')) showToast('咒语已复制');else showToast('复制失败，请手动复制');}
