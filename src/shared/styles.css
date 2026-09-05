@@ -349,6 +349,12 @@
             object-fit: cover;
             object-position: center;
         }
+        .artist-card-actions { opacity: 0; pointer-events: none; }
+        /* Mouse focus persists after deselection; only keyboard focus reveals actions. */
+        .spotlight-card:hover .artist-card-actions,
+        .spotlight-card:focus-visible .artist-card-actions,
+        .artist-card-actions:has(:focus-visible) { opacity: 1; pointer-events: auto; }
+
         .glass-card,
         .dark .glass-card {
             border: 1px solid var(--nt-line);

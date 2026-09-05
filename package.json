@@ -9,6 +9,7 @@
     "serve": "python run_server.py",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:browser": "playwright test",
     "test:legacy": "node --test tests/test_artist_identity.js",
     "test:python": "python -m unittest discover -s tests -p test_*.py",
     "check": "npm run test && npm run test:legacy && npm run test:python && npm run build"
@@ -20,6 +21,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",

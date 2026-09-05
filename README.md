@@ -152,6 +152,8 @@ python run_server.py
 
 ## 贡献
 
+`npm run check` 运行单元测试、类型检查及构建。画师卡片的鼠标与键盘焦点回归使用真实浏览器：先运行 `npx playwright install chromium`，再运行 `npm run test:browser`。Windows 已安装 Edge 时，也可在 PowerShell 设置 `$env:PLAYWRIGHT_CHANNEL='msedge'` 后运行浏览器测试，无需另行下载 Chromium。测试使用模拟存档，不修改实际画师资料。
+
 欢迎通过 [Issues](https://github.com/desperati0n/ai-artist-tool/issues) 提交问题和建议，也欢迎发起 Pull Request。提交界面改动时，请同时检查浅色/深色主题和窄屏布局，并确保现有数据流程不受影响。
 
 <div align="center">
