@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "npm run typecheck && vite build",
+    "build:release": "python build_exe.py",
     "preview": "vite preview --host 127.0.0.1",
     "serve": "python run_server.py",
     "typecheck": "tsc --noEmit",

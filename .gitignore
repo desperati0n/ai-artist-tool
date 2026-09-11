@@ -9,6 +9,8 @@ data.before-legacy-import-*/
 # Frontend dependencies and generated output.
 node_modules/
 dist/
+build/
+release/
 coverage/
 test-results/
 playwright-report/

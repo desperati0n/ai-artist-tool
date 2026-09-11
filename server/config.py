@@ -1,8 +1,19 @@
 import os
 import re
+import sys
 
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def resource_dir(module_file=__file__, *, frozen=None, bundle_dir=None):
+    """Return the read-only application resource root."""
+    is_frozen = getattr(sys, "frozen", False) if frozen is None else frozen
+    if is_frozen:
+        packaged_root = bundle_dir if bundle_dir is not None else getattr(sys, "_MEIPASS", None)
+        if packaged_root:
+            return os.path.abspath(packaged_root)
+    return os.path.dirname(os.path.dirname(os.path.abspath(module_file)))
+
+
+BASE_DIR = resource_dir()
 
 
 DEFAULT_PORT = 8010
@@ -17,7 +28,22 @@ def configured_port(environ=None):
 PORT = configured_port()
 
 
-DATA_DIR = os.path.abspath(os.environ.get("AI_ARTIST_DATA_DIR", os.path.join(BASE_DIR, "data")))
+def configured_data_dir(environ=None, *, base_dir=BASE_DIR, frozen=None, executable=None):
+    """Return a persistent archive directory beside the source tree or EXE."""
+    values = os.environ if environ is None else environ
+    override = values.get("AI_ARTIST_DATA_DIR")
+    if override:
+        return os.path.abspath(os.path.expanduser(os.path.expandvars(override)))
+
+    is_frozen = getattr(sys, "frozen", False) if frozen is None else frozen
+    if is_frozen:
+        executable_path = sys.executable if executable is None else executable
+        return os.path.abspath(os.path.join(os.path.dirname(executable_path), "data"))
+
+    return os.path.abspath(os.path.join(base_dir, "data"))
+
+
+DATA_DIR = configured_data_dir()
 
 
 IMAGES_DIR = os.path.join(DATA_DIR, "images")

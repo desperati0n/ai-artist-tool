@@ -78,6 +78,26 @@ python run_server.py
 
 不需要自动打开浏览器时，使用 `python run_server.py --no-browser`。自定义端口 `AI_ARTIST_PORT` 同时适用于服务和自动打开的链接。
 
+### 构建 Windows EXE 与源码包
+
+首次构建先安装前端与打包依赖：
+
+```powershell
+npm install
+python -m pip install -r requirements-build.txt
+```
+
+然后运行：
+
+```powershell
+npm run build:release
+```
+
+会同时生成 `release/AIArtistTool.exe` 和 `release/AIArtistTool-v16.0.0-source.zip`。EXE 包含 React 生产页面、Python 运行时、服务器代码和 Pillow，目标电脑不需要安装 Node.js 或 Python。双击后会启动仅监听本机的服务并打开浏览器；关闭 EXE 的控制台窗口即可退出。
+
+个人图库和元数据不会塞进 EXE。源码版使用源码目录下的 `data/`，EXE 版则在 EXE 同目录创建 `data/`，不会默认占用系统盘的用户目录。两种模式都可用 `AI_ARTIST_DATA_DIR` 指定其他数据目录。
+
+
 ### 使用保留的旧版本
 
 1. 在仓库右上角选择 `Code` → `Download ZIP`，或者运行：
